@@ -4,7 +4,6 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>MagicMirror Setup</title>
-
 <style>
   body { font-family: system-ui, -apple-system, sans-serif; margin: 16px; max-width: 720px; background: #f5f5f7; }
   h1 { margin: 0 0 8px; }
@@ -12,253 +11,98 @@
   .small { font-size: 13px; color: #666; margin-top: 6px; }
   .ok { color: #0a7; }
   .err { color: #c33; }
-
   .card { background: white; border-radius: 14px; padding: 16px; margin: 14px 0; box-shadow: 0 3px 10px rgba(0,0,0,0.06); }
   label { font-weight: 600; display: block; margin-top: 12px; }
-  input, textarea, button, select {
-    width: 100%;
-    padding: 12px;
-    margin-top: 6px;
-    border-radius: 10px;
-    border: 1px solid #ddd;
-    font-size: 16px;
-    box-sizing: border-box;
-  }
+  input, textarea, button, select { width: 100%; padding: 12px; margin-top: 6px; border-radius: 10px; border: 1px solid #ddd; font-size: 16px; box-sizing: border-box; }
   textarea { resize: vertical; min-height: 180px; }
-
-  button { background: #111; color: white; border: none; cursor: pointer; }
+  button { background: #111; color: white; border: none; cursor: pointer; font-weight: 600; }
   button.secondary { background: #eee; color: #111; }
   button:disabled { background: #bbb; cursor: not-allowed; }
+  .network-item { padding: 12px; border-radius: 12px; margin-bottom: 8px; background: #fafafa; border: 1px solid #e5e5e5; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+  .urlBox { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: #f3fff9; border: 1px solid #bdf0d3; font-family: monospace; font-size: 14px; color: #0a7; }
+  .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px; }
+  .tabBtn { background: #eee; color: #111; border: 1px solid #ddd; padding: 10px; border-radius: 10px; cursor: pointer; }
+  .tabBtn.active { background: #111; color: #fff; }
+  .tabPane { display: none; margin-top: 10px; }
+  .tabPane.active { display: block; }
 
-  .row { display: flex; gap: 10px; }
-  .row > div { flex: 1; }
-
-  .selectedWrap { margin: 10px 0 14px; }
-  .pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 12px;
-    border-radius: 999px;
-    background: #e8fff3;
-    color: #0a7;
-    font-weight: 700;
-    border: 1px solid #bdf0d3;
-  }
-  .pill .dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 999px;
-    background: #0a7;
-  }
-  .pillMuted {
-    background: #fff;
-    color: #777;
-    border: 1px solid #eee;
-    font-weight: 600;
-  }
-
-  .network-list { margin-top: 10px; }
-  .network-item {
-    padding: 12px; border-radius: 12px; margin-bottom: 8px;
-    background: #fafafa; border: 1px solid #e5e5e5;
-    display: flex; justify-content: space-between; align-items: center; gap: 10px;
-    cursor: pointer;
-  }
-  .network-item.selected {
-    border-color: #0a7;
-    box-shadow: 0 0 0 2px rgba(0,167,120,0.18) inset;
-    background: #f3fff9;
-  }
-  .ssid { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-  .signalText { font-size: 13px; opacity: 0.7; min-width: 44px; text-align: right; }
-
-  .bars { display: inline-flex; gap: 3px; align-items: flex-end; height: 16px; }
-  .bar { width: 4px; border-radius: 2px; background: #ddd; }
-  .bar.on { background: #111; }
-  .bar.h1 { height: 6px; } .bar.h2 { height: 9px; } .bar.h3 { height: 12px; } .bar.h4 { height: 15px; }
-
-  .urlBox {
-    margin-top: 10px;
-    padding: 10px 12px;
-    border-radius: 10px;
-    background: #f3fff9;
-    border: 1px solid #bdf0d3;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 14px;
-    word-break: break-all;
-    color: #0a7;
-  }
-
-  .tabs {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-    margin-top: 10px;
-  }
-
-  .tabBtn {
-    background: #eee;
-    color: #111;
-    border: 1px solid #ddd;
-    padding: 10px;
-    border-radius: 10px;
-    font-weight: 700;
-    cursor: pointer;
-    width: 100%;
-  }
-
-  .tabBtn.active {
-    background: #111;
-    color: #fff;
-    border-color: #111;
-  }
-
-  .tabPane {
-    display: none;
-    margin-top: 10px;
-  }
-
-  .tabPane.active {
-    display: block;
-  }
-
-  .overlay {
-    position: fixed; inset: 0;
-    background: rgba(0,0,0,0.55);
-    display: none;
-    align-items: center;
-    justify-content: center;
-    padding: 18px;
-    z-index: 9999;
-  }
+  /* RESTORED MODAL UI */
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: none; align-items: center; justify-content: center; padding: 18px; z-index: 9999; }
   .overlay.show { display: flex; }
-  .overlayCard {
-    background: white;
-    border-radius: 16px;
-    padding: 18px;
-    width: 100%;
-    max-width: 520px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.25);
-  }
+  .overlayCard { background: white; border-radius: 16px; padding: 18px; width: 100%; max-width: 520px; box-shadow: 0 10px 30px rgba(0,0,0,0.25); }
   .overlayTitle { font-size: 20px; font-weight: 900; margin-bottom: 6px; }
-  .overlayBody { color: #333; line-height: 1.35; }
-  .overlayPill {
-    display:inline-block; margin-top: 12px;
-    background:#111; color:#fff; padding: 6px 10px; border-radius: 999px; font-size: 13px;
-  }
+  .overlayPill { display:inline-block; margin-top: 12px; background:#111; color:#fff; padding: 6px 10px; border-radius: 999px; font-size: 13px; }
   .overlayPill.ok { background:#0a7; }
   .overlayPill.err { background:#c33; }
   .overlayHint { margin-top: 10px; font-size: 13px; color:#666; }
-
   .progressRow { margin-top: 10px; display:flex; gap:10px; align-items:center; }
-  .spinner {
-    width: 14px; height: 14px; border-radius: 50%;
-    border: 2px solid #ddd; border-top-color: #111;
-    animation: spin 0.9s linear infinite;
-    flex: 0 0 auto;
-  }
+  .spinner { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #ddd; border-top-color: #111; animation: spin 0.9s linear infinite; flex: 0 0 auto; }
   @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 
 <body>
 <h1>MagicMirror Setup</h1>
-<p class="small">Configure WiFi, location, calendars, feeds, and compliments, then apply once at the end.</p>
 
 <div class="card">
-  <h2>Edit settings later</h2>
-  <div class="small">
-    Once the Mirror is on your home WiFi, revisit this page from another device on the same network using:
-  </div>
-  <div id="deviceInfoStatus" class="small">Checking local address...</div>
-  <div id="deviceInfoBox" class="urlBox" style="display:none;"></div>
-</div>
-
-<div class="selectedWrap">
-  <div id="selectedPill" class="pill pillMuted">
-    <span class="dot" style="background:#bbb"></span>
-    <span id="selectedText">No WiFi selected yet</span>
+  <h2>Device Address</h2>
+  <div id="deviceInfoStatus" class="small">After adding connection settings revisit this page on:</div>
+  <div class="urlBox">
+    <a href="http://mirror.local:3001/" style="color:#0a7; text-decoration: none; font-weight: bold;">http://mirror.local:3001/</a>
   </div>
 </div>
 
 <div class="card">
   <h2>WiFi</h2>
-
   <button class="secondary" id="scanBtn">Scan Networks</button>
   <div id="scanStatus" class="small"></div>
-
-  <div class="network-list" id="networkList"></div>
-
+  <div id="networkList" style="margin-top:10px;"></div>
   <label>SSID</label>
-  <input id="ssid" placeholder="Select a network or type manually" autocomplete="off" />
-
+  <input id="ssid" placeholder="WiFi Name" autocomplete="off" />
   <label>Password</label>
-  <input id="password" type="password" placeholder="WiFi password" autocomplete="off" />
+  <input id="password" type="password" placeholder="Password" autocomplete="off" />
 </div>
 
 <div class="card">
   <h2>Location (for Weather)</h2>
-
   <div class="row">
-    <div>
-      <label for="lat">Latitude</label>
-      <input id="lat" placeholder="e.g. 51.5074" inputmode="decimal" />
-    </div>
-    <div>
-      <label for="lon">Longitude</label>
-      <input id="lon" placeholder="e.g. 0.0500" inputmode="decimal" />
-    </div>
+    <div><label>Latitude</label><input id="lat" placeholder="e.g. 51.5" /></div>
+    <div><label>Longitude</label><input id="lon" placeholder="e.g. -0.1" /></div>
   </div>
+  <button id="autoLocateBtn" class="secondary" style="margin-top:10px;" disabled>Auto-Locate Now</button>
+  <div id="autoLocateStatus" class="small" style="color: #c33;">Only available through WiFi connection</div>
 </div>
 
 <div class="card">
   <h2>Holiday Calendar</h2>
-  <label for="countrySearch">Search country</label>
-  <input id="countrySearch" placeholder="Type country name or code, e.g. united kingdom" />
-
-  <label for="countryCode">Holiday country</label>
+  <label>Search country</label>
+  <input id="countrySearch" placeholder="Type country name..." />
+  <label style="margin-top:10px;">Holiday country</label>
   <select id="countryCode"></select>
-
-  <div class="small">This is your built-in holiday calendar. Extra custom calendars go below.</div>
 </div>
 
 <div class="card">
   <h2>Additional Calendars (one per line)</h2>
-  <textarea id="calendarFeeds" rows="5" placeholder="https://calendar.google.com/calendar/ical/.../basic.ics"></textarea>
+  <textarea id="calendarFeeds" rows="4"></textarea>
 </div>
 
 <div class="card">
   <h2>News Feeds (one per line)</h2>
-  <textarea id="feeds" rows="6" placeholder="https://example.com/rss"></textarea>
+  <textarea id="feeds" rows="5"></textarea>
 </div>
 
 <div class="card">
   <h2>Compliments</h2>
-
   <div class="tabs">
-    <button type="button" class="tabBtn active" data-tab="morning">AM</button>
-    <button type="button" class="tabBtn" data-tab="afternoon">PM</button>
-    <button type="button" class="tabBtn" data-tab="evening">EVE</button>
-    <button type="button" class="tabBtn" data-tab="anytime">ALL DAY</button>
+    <button class="tabBtn active" data-tab="morning">AM</button>
+    <button class="tabBtn" data-tab="afternoon">PM</button>
+    <button class="tabBtn" data-tab="evening">EVE</button>
+    <button class="tabBtn" data-tab="anytime">ALL</button>
   </div>
-
-  <div class="tabPane active" data-pane="morning">
-    <textarea id="complimentsMorning" placeholder="Morning compliments, one per line"></textarea>
-  </div>
-
-  <div class="tabPane" data-pane="afternoon">
-    <textarea id="complimentsAfternoon" placeholder="Afternoon compliments, one per line"></textarea>
-  </div>
-
-  <div class="tabPane" data-pane="evening">
-    <textarea id="complimentsEvening" placeholder="Evening compliments, one per line"></textarea>
-  </div>
-
-  <div class="tabPane" data-pane="anytime">
-    <textarea id="complimentsAnytime" placeholder="All day compliments, one per line"></textarea>
-  </div>
+  <div class="tabPane active" data-pane="morning"><textarea id="complimentsMorning"></textarea></div>
+  <div class="tabPane" data-pane="afternoon"><textarea id="complimentsAfternoon"></textarea></div>
+  <div class="tabPane" data-pane="evening"><textarea id="complimentsEvening"></textarea></div>
+  <div class="tabPane" data-pane="anytime"><textarea id="complimentsAnytime"></textarea></div>
 </div>
 
 <div class="card">
@@ -269,26 +113,25 @@
 
 <div class="overlay" id="overlay">
   <div class="overlayCard">
-    <div class="overlayTitle" id="overlayTitle">Applying settings...</div>
-    <div class="overlayBody" id="overlayBody">
-      <div class="progressRow">
-        <div class="spinner" id="spinner"></div>
-        <div>
-          <div id="overlayLine1"><b>Starting...</b></div>
-          <div class="small" id="overlayLine2">Please wait...</div>
-        </div>
+    <div class="overlayTitle">Applying settings...</div>
+    <div class="progressRow">
+      <div class="spinner" id="spinner"></div>
+      <div>
+        <div id="overlayLine1"><b>Starting...</b></div>
+        <div class="small" id="overlayLine2">Please wait...</div>
       </div>
-
-      <div class="overlayPill" id="overlayPill">MagicMirror is updating...</div>
-      <div class="overlayHint" id="overlayHint">
-        Your phone may disconnect when the Mirror switches WiFi. That is expected.
-      </div>
+    </div>
+    <div class="overlayPill" id="overlayPill">MagicMirror is updating...</div>
+    <div class="overlayHint" id="overlayHint">
+      If the Mirror has joined your WiFi, the hotspot will close.<br>
+      Revisit on <a href="http://mirror.local:3001/" style="color:#0a7; font-weight:bold;">http://mirror.local:3001/</a>
     </div>
   </div>
 </div>
 
 <script>
   const $ = (id) => document.getElementById(id);
+  const isHotspot = window.location.hostname === "10.42.0.1";
 
   const COUNTRY_OPTIONS = [
     ["au", "Australia"], ["at", "Austria"], ["be", "Belgium"], ["br", "Brazil"], ["ca", "Canada"],
@@ -299,248 +142,116 @@
     ["se", "Sweden"], ["ch", "Switzerland"], ["ae", "United Arab Emirates"], ["gb", "United Kingdom"], ["us", "United States"]
   ];
 
-  function linesToArray(text) {
-    return String(text || "").split("\n").map(s => s.trim()).filter(Boolean);
+  function populateCountries(filter = "") {
+    const q = filter.toLowerCase();
+    const filtered = COUNTRY_OPTIONS.filter(([c, n]) => n.toLowerCase().includes(q) || c.includes(q));
+    $("countryCode").innerHTML = filtered.map(([c, n]) => `<option value="${c}">${n}</option>`).join("");
   }
 
-  function arrayToLines(arr) {
-    return Array.isArray(arr) ? arr.join("\n") : "";
+  if (!isHotspot) {
+    $("autoLocateBtn").disabled = false;
+    $("autoLocateStatus").textContent = "WiFi Active: Auto-locate ready.";
+    $("autoLocateStatus").style.color = "#0a7";
   }
 
-  function clamp(n, min, max) {
-    return Math.max(min, Math.min(max, n));
-  }
-
-  function normalizeCoord(value) {
-    if (value === null || value === undefined || value === "") return null;
-    const n = Number(value);
-    if (!Number.isFinite(n)) return null;
-    if (Object.is(n, 0) || Object.is(n, -0)) return 0.0001;
-    return Number(n.toFixed(6));
-  }
-
-  function signalToBars(signalPct) {
-    const s = clamp(Number(signalPct || 0), 0, 100);
-    if (s >= 75) return 4;
-    if (s >= 55) return 3;
-    if (s >= 35) return 2;
-    if (s >= 15) return 1;
-    return 0;
-  }
-
-  function renderBars(level) {
-    const on = clamp(level, 0, 4);
-    return `
-      <span class="bars" aria-label="Signal ${on}/4">
-        <span class="bar h1 ${on >= 1 ? "on" : ""}"></span>
-        <span class="bar h2 ${on >= 2 ? "on" : ""}"></span>
-        <span class="bar h3 ${on >= 3 ? "on" : ""}"></span>
-        <span class="bar h4 ${on >= 4 ? "on" : ""}"></span>
-      </span>
-    `;
-  }
-
-  function populateCountrySelect(filterText = "") {
-    const select = $("countryCode");
-    const current = select.value || "gb";
-    const q = String(filterText || "").trim().toLowerCase();
-
-    const filtered = COUNTRY_OPTIONS.filter(([code, name]) => {
-      if (!q) return true;
-      return code.includes(q) || name.toLowerCase().includes(q);
-    });
-
-    select.innerHTML = filtered
-      .map(([code, name]) => `<option value="${code}">${name} (${code.toUpperCase()})</option>`)
-      .join("");
-
-    if (filtered.some(([code]) => code === current)) {
-      select.value = current;
-    } else if (filtered.length) {
-      select.value = filtered[0][0];
-    }
-  }
-
-  function updateSelectedPill() {
-    const ssid = $("ssid").value.trim();
-    const pill = $("selectedPill");
-    const dot = pill.querySelector(".dot");
-    if (!ssid) {
-      pill.classList.add("pillMuted");
-      dot.style.background = "#bbb";
-      $("selectedText").textContent = "No WiFi selected yet";
-      return;
-    }
-    pill.classList.remove("pillMuted");
-    dot.style.background = "#0a7";
-    $("selectedText").textContent = `Selected WiFi: ${ssid}`;
-  }
-
-  function highlightSelectedNetwork() {
-    const chosen = $("ssid").value.trim();
-    const items = document.querySelectorAll(".network-item");
-    items.forEach((el) => {
-      const ssid = el.getAttribute("data-ssid") || "";
-      el.classList.toggle("selected", chosen && ssid === chosen);
-    });
-  }
-
-  function updateApplyEnabled() {
-    const ssidOk = $("ssid").value.trim().length > 0;
-    const passOk = $("password").value.length > 0;
-    $("applyBtn").disabled = !(ssidOk && passOk);
-    updateSelectedPill();
-    highlightSelectedNetwork();
-  }
-
-  function switchTab(tabName) {
-    document.querySelectorAll(".tabBtn").forEach(btn => {
-      btn.classList.toggle("active", btn.dataset.tab === tabName);
-    });
-    document.querySelectorAll(".tabPane").forEach(pane => {
-      pane.classList.toggle("active", pane.dataset.pane === tabName);
-    });
-  }
-
-  async function loadDeviceInfo() {
-    try {
-      const res = await fetch("/api/device/info");
-      const info = await res.json();
-      if (!info.ok) throw new Error("Load failed");
-      const urls = [];
-      if (info.settingsUrl) urls.push(info.settingsUrl);
-      if (info.hostname) urls.push(`http://${info.hostname}.local:3001`);
-      if (urls.length) {
-        $("deviceInfoStatus").innerHTML = `<span class="ok">After adding connection settings revisit this page on:</span>`;
-        $("deviceInfoBox").style.display = "block";
-        $("deviceInfoBox").innerHTML = `<div><a href="http://mirror.local:3001/" style="color:#0a7; font-weight:bold;">http://mirror.local:3001/</a></div>`;
-      }
-    } catch (e) {
-      $("deviceInfoStatus").textContent = "Address available after WiFi setup.";
-    }
-  }
-
-  async function loadSettings() {
-    const res = await fetch("/api/settings");
-    const s = await res.json();
+  async function load() {
+    const s = await (await fetch("/api/settings")).json();
     $("ssid").value = s.wifi?.ssid || "";
     $("password").value = s.wifi?.password || "";
-    $("lat").value = s.location?.lat ?? "";
-    $("lon").value = s.location?.lon ?? "";
-    $("calendarFeeds").value = arrayToLines(s.calendarFeeds);
-    $("feeds").value = arrayToLines(s.newsFeeds);
-    $("countryCode").value = (s.holidayCountryCode || "gb").toLowerCase();
-    $("complimentsMorning").value = arrayToLines(s.compliments?.morning);
-    $("complimentsAfternoon").value = arrayToLines(s.compliments?.afternoon);
-    $("complimentsEvening").value = arrayToLines(s.compliments?.evening);
-    $("complimentsAnytime").value = arrayToLines(s.compliments?.anytime);
-    updateApplyEnabled();
+    $("lat").value = s.location?.lat || "";
+    $("lon").value = s.location?.lon || "";
+    $("calendarFeeds").value = (s.calendarFeeds || []).join("\n");
+    $("feeds").value = (s.newsFeeds || []).join("\n");
+    $("countryCode").value = s.holidayCountryCode || "gb";
+    $("complimentsMorning").value = (s.compliments?.morning || []).join("\n");
+    $("complimentsAfternoon").value = (s.compliments?.afternoon || []).join("\n");
+    $("complimentsEvening").value = (s.compliments?.evening || []).join("\n");
+    $("complimentsAnytime").value = (s.compliments?.anytime || []).join("\n");
+    $("applyBtn").disabled = !$("ssid").value;
   }
 
-  async function saveSettings() {
-    const payload = {
-      wifi: { ssid: $("ssid").value.trim(), password: $("password").value },
-      location: { lat: normalizeCoord($("lat").value), lon: normalizeCoord($("lon").value), source: "user" },
-      holidayCountryCode: $("countryCode").value || "gb",
-      calendarFeeds: linesToArray($("calendarFeeds").value),
-      newsFeeds: linesToArray($("feeds").value),
-      compliments: {
-        morning: linesToArray($("complimentsMorning").value),
-        afternoon: linesToArray($("complimentsAfternoon").value),
-        evening: linesToArray($("complimentsEvening").value),
-        anytime: linesToArray($("complimentsAnytime").value)
-      }
-    };
-    const res = await fetch("/api/settings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    return await res.json();
-  }
+  $("countrySearch").oninput = (e) => populateCountries(e.target.value);
 
   $("scanBtn").onclick = async () => {
     $("scanStatus").textContent = "Scanning...";
+    const out = await (await fetch("/api/wifi/scan")).json();
+    $("networkList").innerHTML = out.networks.map(n => `
+      <div class="network-item" onclick="$('ssid').value='${n.ssid}'; $('applyBtn').disabled=false;">
+        <b>${n.ssid}</b> <span>${n.signal}%</span>
+      </div>`).join("");
+    $("scanStatus").textContent = "Scan complete.";
+  };
+
+  $("autoLocateBtn").onclick = async () => {
+    $("autoLocateStatus").textContent = "Locating...";
     try {
-      const res = await fetch("/api/wifi/scan");
-      const out = await res.json();
-      $("networkList").innerHTML = "";
-      out.networks.forEach(n => {
-        const item = document.createElement("div");
-        item.className = "network-item";
-        item.setAttribute("data-ssid", n.ssid);
-        item.innerHTML = `<div class="ssid">${n.ssid}</div><div class="right">${renderBars(signalToBars(n.signal))} <div class="signalText">${n.signal}%</div></div>`;
-        item.onclick = () => { $("ssid").value = n.ssid; updateApplyEnabled(); };
-        $("networkList").appendChild(item);
-      });
-      $("scanStatus").innerHTML = `<span class="ok">Found ${out.networks.length} networks</span>`;
-    } catch (e) { $("scanStatus").innerHTML = `<span class="err">Scan failed</span>`; }
+      const res = await (await fetch("https://ipapi.co/json/")).json();
+      $("lat").value = res.latitude.toFixed(4);
+      $("lon").value = res.longitude.toFixed(4);
+      $("autoLocateStatus").textContent = "Location found!";
+    } catch(e) { $("autoLocateStatus").textContent = "Lookup failed."; }
   };
 
   $("saveBtn").onclick = async () => {
-    $("status").textContent = "Saving...";
-    try {
-      const out = await saveSettings();
-      $("status").innerHTML = out.ok ? `<span class="ok">Saved!</span>` : `<span class="err">Save failed</span>`;
-    } catch (e) { $("status").innerHTML = `<span class="err">${e.message}</span>`; }
-  };
-
-  function showOverlay(title) {
-    $("overlayTitle").textContent = title;
-    $("overlay").classList.add("show");
-  }
-
-  function overlayUpdate(step, message) {
-    $("overlayLine1").innerHTML = `<b>${(step || "working").toUpperCase()}...</b>`;
-    $("overlayLine2").textContent = message || "";
-  }
-
-  function overlayDone(message) {
-    $("spinner").style.display = "none";
-    $("overlayPill").className = "overlayPill ok";
-    $("overlayPill").textContent = "Update Complete!";
-    $("overlayHint").innerHTML = `<b>Rebooting...</b><br>After adding connection settings revisit this page on <a href="http://mirror.local:3001/">http://mirror.local:3001/</a>`;
-  }
-
-  function overlayError(message) {
-    $("spinner").style.display = "none";
-    $("overlayPill").className = "overlayPill err";
-    $("overlayPill").textContent = "Status Update";
-    $("overlayHint").innerHTML = `<b>Connection Note:</b><br>If the Mirror has joined your WiFi, the hotspot will close.<br>Revisit this page on <a href="http://mirror.local:3001/" style="color:#0a7; font-weight:bold;">http://mirror.local:3001/</a>`;
-  }
-
-  async function pollApplyStatus() {
-    for (let i = 0; i < 60; i++) {
-      try {
-        const res = await fetch("/api/apply/status");
-        const st = await res.json();
-        overlayUpdate(st.step, st.message);
-        if (st.step === "done") { overlayDone(st.message); return; }
-        if (st.step === "error") { overlayError(st.lastError); return; }
-      } catch (e) {
-        // If we can't reach the server, it likely switched WiFi. 
-        // We show the "connection note" with the link.
-        overlayUpdate("switching", "Mirror is changing networks...");
-        overlayError();
+    const payload = {
+      wifi: { ssid: $("ssid").value, password: $("password").value },
+      location: { lat: $("lat").value ? parseFloat($("lat").value) : null, lon: $("lon").value ? parseFloat($("lon").value) : null },
+      holidayCountryCode: $("countryCode").value,
+      calendarFeeds: $("calendarFeeds").value.split("\n").filter(Boolean),
+      newsFeeds: $("feeds").value.split("\n").filter(Boolean),
+      compliments: { 
+        morning: $("complimentsMorning").value.split("\n").filter(Boolean),
+        afternoon: $("complimentsAfternoon").value.split("\n").filter(Boolean),
+        evening: $("complimentsEvening").value.split("\n").filter(Boolean),
+        anytime: $("complimentsAnytime").value.split("\n").filter(Boolean)
       }
-      await new Promise(r => setTimeout(r, 1500));
-    }
-  }
+    };
+    await fetch("/api/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    $("status").textContent = "Saved!";
+    $("applyBtn").disabled = false;
+  };
 
   $("applyBtn").onclick = async () => {
-    const out = await saveSettings();
-    if (!out.ok) return;
-    showOverlay("Applying...");
+    $("overlay").classList.add("show");
     fetch("/api/apply", { method: "POST" });
-    pollApplyStatus();
+    const poller = setInterval(async () => {
+      try {
+        const st = await (await fetch("/api/apply/status")).json();
+        $("overlayLine1").innerHTML = `<b>${st.step.toUpperCase()}...</b>`;
+        $("overlayLine2").textContent = st.message;
+        
+        if (st.step === "done") {
+          $("spinner").style.display = "none";
+          $("overlayPill").className = "overlayPill ok";
+          $("overlayPill").textContent = "Update Complete!";
+          clearInterval(poller);
+        }
+        if (st.step === "error") {
+          $("spinner").style.display = "none";
+          $("overlayPill").className = "overlayPill err";
+          $("overlayPill").textContent = "Error Occurred";
+          clearInterval(poller);
+        }
+      } catch(e) {
+        // Handle connection drop (expected during WiFi switch)
+        if (window.location.hostname === "10.42.0.1") {
+           $("overlayLine1").innerHTML = `<b>SWITCHING...</b>`;
+           $("overlayLine2").textContent = "Mirror has likely moved to WiFi.";
+        }
+      }
+    }, 2000);
   };
 
-  $("ssid").addEventListener("input", updateApplyEnabled);
-  $("password").addEventListener("input", updateApplyEnabled);
-  document.querySelectorAll(".tabBtn").forEach(b => b.onclick = () => switchTab(b.dataset.tab));
-  populateCountrySelect();
-  loadSettings();
-  loadDeviceInfo();
+  document.querySelectorAll(".tabBtn").forEach(b => {
+    b.onclick = () => {
+      document.querySelectorAll(".tabBtn, .tabPane").forEach(el => el.classList.remove("active"));
+      b.classList.add("active");
+      document.querySelector(`[data-pane="${b.dataset.tab}"]`).classList.add("active");
+    };
+  });
+
+  populateCountries();
+  load();
 </script>
 </body>
 </html>
