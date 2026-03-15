@@ -18,15 +18,36 @@
   button { background: #111; color: white; border: none; cursor: pointer; font-weight: 600; }
   button.secondary { background: #eee; color: #111; }
   button:disabled { background: #bbb; cursor: not-allowed; }
-  .network-item { padding: 12px; border-radius: 12px; margin-bottom: 8px; background: #fafafa; border: 1px solid #e5e5e5; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+
+  .network-item {
+    padding: 12px;
+    border-radius: 12px;
+    margin-bottom: 8px;
+    background: #fafafa;
+    border: 1px solid #e5e5e5;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+  }
+  .network-item:hover {
+    background: #f0f0f0;
+    transform: translateY(-1px);
+  }
+  .network-item.selected {
+    background: #f3fff9;
+    border-color: #86ddb0;
+  }
+
   .urlBox { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: #f3fff9; border: 1px solid #bdf0d3; font-family: monospace; font-size: 14px; color: #0a7; }
   .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px; }
   .tabBtn { background: #eee; color: #111; border: 1px solid #ddd; padding: 10px; border-radius: 10px; cursor: pointer; }
   .tabBtn.active { background: #111; color: #fff; }
   .tabPane { display: none; margin-top: 10px; }
   .tabPane.active { display: block; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
-  /* RESTORED MODAL UI */
   .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: none; align-items: center; justify-content: center; padding: 18px; z-index: 9999; }
   .overlay.show { display: flex; }
   .overlayCard { background: white; border-radius: 16px; padding: 18px; width: 100%; max-width: 520px; box-shadow: 0 10px 30px rgba(0,0,0,0.25); }
@@ -57,10 +78,13 @@
   <button class="secondary" id="scanBtn">Scan Networks</button>
   <div id="scanStatus" class="small"></div>
   <div id="networkList" style="margin-top:10px;"></div>
+
   <label>SSID</label>
   <input id="ssid" placeholder="WiFi Name" autocomplete="off" />
+
   <label>Password</label>
   <input id="password" type="password" placeholder="Password" autocomplete="off" />
+
   <button id="applyBtn" style="margin-top:10px;" class="secondary" disabled>Update and reboot</button>
 </div>
 
@@ -132,6 +156,8 @@
 <script>
   const $ = (id) => document.getElementById(id);
   const isHotspot = window.location.hostname === "10.42.0.1";
+  let isDirty = false;
+  let isSaving = false;
 
   const COUNTRY_OPTIONS = [
     ["au", "Australia"], ["at", "Austria"], ["be", "Belgium"], ["br", "Brazil"], ["ca", "Canada"],
@@ -142,10 +168,132 @@
     ["se", "Sweden"], ["ch", "Switzerland"], ["ae", "United Arab Emirates"], ["gb", "United Kingdom"], ["us", "United States"]
   ];
 
+  function markDirty() {
+    isDirty = true;
+    updateApplyButtonState();
+  }
+
+  function clearDirty() {
+    isDirty = false;
+    updateApplyButtonState();
+  }
+
   function populateCountries(filter = "") {
+    const current = $("countryCode").value || "gb";
     const q = filter.toLowerCase();
     const filtered = COUNTRY_OPTIONS.filter(([c, n]) => n.toLowerCase().includes(q) || c.includes(q));
-    $("countryCode").innerHTML = filtered.map(([c, n]) => `<option value="${c}">${n}</option>`).join("");
+
+    $("countryCode").innerHTML = filtered
+      .map(([c, n]) => `<option value="${c}">${n}</option>`)
+      .join("");
+
+    if (filtered.some(([c]) => c === current)) {
+      $("countryCode").value = current;
+    } else if (filtered.length) {
+      $("countryCode").value = filtered[0][0];
+    }
+  }
+
+  function updateApplyButtonState() {
+    $("applyBtn").disabled = isSaving || !$("ssid").value.trim();
+  }
+
+  function highlightSelectedNetwork(ssid) {
+    document.querySelectorAll(".network-item").forEach(el => {
+      el.classList.toggle("selected", el.dataset.ssid === ssid);
+    });
+  }
+
+  function selectNetwork(ssid) {
+    $("ssid").value = ssid;
+    markDirty();
+    highlightSelectedNetwork(ssid);
+
+    const passwordEl = $("password");
+    passwordEl.scrollIntoView({ behavior: "smooth", block: "center" });
+
+    setTimeout(() => {
+      passwordEl.focus();
+      passwordEl.select();
+    }, 250);
+  }
+
+  function linesFromTextarea(el) {
+    return el.value
+      .split("\n")
+      .map(v => v.trim())
+      .filter(Boolean);
+  }
+
+  function buildPayload() {
+    return {
+      wifi: {
+        ssid: $("ssid").value.trim(),
+        password: $("password").value
+      },
+      location: {
+        lat: $("lat").value ? parseFloat($("lat").value) : null,
+        lon: $("lon").value ? parseFloat($("lon").value) : null
+      },
+      holidayCountryCode: $("countryCode").value,
+      calendarFeeds: linesFromTextarea($("calendarFeeds")),
+      newsFeeds: linesFromTextarea($("feeds")),
+      compliments: {
+        morning: linesFromTextarea($("complimentsMorning")),
+        afternoon: linesFromTextarea($("complimentsAfternoon")),
+        evening: linesFromTextarea($("complimentsEvening")),
+        anytime: linesFromTextarea($("complimentsAnytime"))
+      }
+    };
+  }
+
+  async function saveSettings(showSavedMessage = true) {
+    if (isSaving) return null;
+
+    const payload = buildPayload();
+    isSaving = true;
+    updateApplyButtonState();
+
+    if (showSavedMessage) {
+      $("status").textContent = "Saving...";
+      $("status").className = "small";
+    }
+
+    try {
+      const res = await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      const out = await res.json();
+
+      if (!res.ok || !out.ok) {
+        throw new Error(out.error || "Save failed");
+      }
+
+      if (out.settings?.wifi) {
+        $("ssid").value = out.settings.wifi.ssid || "";
+        $("password").value = out.settings.wifi.password || "";
+      }
+
+      clearDirty();
+      highlightSelectedNetwork($("ssid").value.trim());
+
+      if (showSavedMessage) {
+        $("status").textContent = "Saved!";
+        $("status").className = "small ok";
+      }
+
+      return out.settings || payload;
+    } catch (err) {
+      $("status").textContent = `Save failed: ${err.message}`;
+      $("status").className = "small err";
+      throw err;
+    } finally {
+      isSaving = false;
+      updateApplyButtonState();
+    }
   }
 
   if (!isHotspot) {
@@ -155,89 +303,179 @@
   }
 
   async function load() {
-    const s = await (await fetch("/api/settings")).json();
-    $("ssid").value = s.wifi?.ssid || "";
-    $("password").value = s.wifi?.password || "";
-    $("lat").value = s.location?.lat || "";
-    $("lon").value = s.location?.lon || "";
-    $("calendarFeeds").value = (s.calendarFeeds || []).join("\n");
-    $("feeds").value = (s.newsFeeds || []).join("\n");
-    $("countryCode").value = s.holidayCountryCode || "gb";
-    $("complimentsMorning").value = (s.compliments?.morning || []).join("\n");
-    $("complimentsAfternoon").value = (s.compliments?.afternoon || []).join("\n");
-    $("complimentsEvening").value = (s.compliments?.evening || []).join("\n");
-    $("complimentsAnytime").value = (s.compliments?.anytime || []).join("\n");
-    $("applyBtn").disabled = !$("ssid").value;
+    try {
+      const res = await fetch("/api/settings");
+      const s = await res.json();
+
+      $("ssid").value = s.wifi?.ssid || "";
+      $("password").value = s.wifi?.password || "";
+      $("lat").value = s.location?.lat ?? "";
+      $("lon").value = s.location?.lon ?? "";
+      $("calendarFeeds").value = (s.calendarFeeds || []).join("\n");
+      $("feeds").value = (s.newsFeeds || []).join("\n");
+      $("complimentsMorning").value = (s.compliments?.morning || []).join("\n");
+      $("complimentsAfternoon").value = (s.compliments?.afternoon || []).join("\n");
+      $("complimentsEvening").value = (s.compliments?.evening || []).join("\n");
+      $("complimentsAnytime").value = (s.compliments?.anytime || []).join("\n");
+
+      populateCountries();
+      $("countryCode").value = s.holidayCountryCode || "gb";
+
+      clearDirty();
+      highlightSelectedNetwork($("ssid").value.trim());
+    } catch (err) {
+      $("status").textContent = `Failed to load settings: ${err.message}`;
+      $("status").className = "small err";
+    }
   }
+
+  [
+    "ssid", "password", "lat", "lon", "countryCode",
+    "calendarFeeds", "feeds",
+    "complimentsMorning", "complimentsAfternoon", "complimentsEvening", "complimentsAnytime"
+  ].forEach(id => {
+    $(id).addEventListener("input", () => {
+      markDirty();
+      if (id === "ssid") highlightSelectedNetwork($("ssid").value.trim());
+    });
+    $(id).addEventListener("change", markDirty);
+  });
 
   $("countrySearch").oninput = (e) => populateCountries(e.target.value);
 
   $("scanBtn").onclick = async () => {
     $("scanStatus").textContent = "Scanning...";
-    const out = await (await fetch("/api/wifi/scan")).json();
-    $("networkList").innerHTML = out.networks.map(n => `
-      <div class="network-item" onclick="$('ssid').value='${n.ssid}'; $('applyBtn').disabled=false;">
-        <b>${n.ssid}</b> <span>${n.signal}%</span>
-      </div>`).join("");
-    $("scanStatus").textContent = "Scan complete.";
+    $("networkList").innerHTML = "";
+
+    try {
+      const res = await fetch("/api/wifi/scan");
+      const out = await res.json();
+
+      if (!out.ok) {
+        throw new Error(out.error || "Scan failed");
+      }
+
+      if (!out.networks || !out.networks.length) {
+        $("scanStatus").textContent = "No networks found.";
+        return;
+      }
+
+      const frag = document.createDocumentFragment();
+
+      out.networks.forEach(n => {
+        const item = document.createElement("div");
+        item.className = "network-item";
+        item.dataset.ssid = n.ssid;
+
+        const name = document.createElement("b");
+        name.textContent = n.ssid;
+
+        const signal = document.createElement("span");
+        signal.textContent = `${n.signal}%`;
+
+        item.appendChild(name);
+        item.appendChild(signal);
+
+        item.addEventListener("click", () => selectNetwork(n.ssid));
+
+        if ($("ssid").value.trim() === n.ssid) {
+          item.classList.add("selected");
+        }
+
+        frag.appendChild(item);
+      });
+
+      $("networkList").appendChild(frag);
+      $("scanStatus").textContent = "Scan complete. Tap a network to continue.";
+    } catch (err) {
+      $("scanStatus").textContent = `Scan failed: ${err.message}`;
+    }
   };
 
   $("autoLocateBtn").onclick = async () => {
     $("autoLocateStatus").textContent = "Locating...";
+    $("autoLocateStatus").style.color = "#666";
+
     try {
-      const res = await (await fetch("https://ipapi.co/json/")).json();
-      $("lat").value = res.latitude.toFixed(4);
-      $("lon").value = res.longitude.toFixed(4);
+      const res = await fetch("https://ipapi.co/json/");
+      const data = await res.json();
+
+      if (typeof data.latitude !== "number" || typeof data.longitude !== "number") {
+        throw new Error("No coordinates returned");
+      }
+
+      $("lat").value = data.latitude.toFixed(4);
+      $("lon").value = data.longitude.toFixed(4);
       $("autoLocateStatus").textContent = "Location found!";
-    } catch(e) { $("autoLocateStatus").textContent = "Lookup failed."; }
+      $("autoLocateStatus").style.color = "#0a7";
+      markDirty();
+    } catch(e) {
+      $("autoLocateStatus").textContent = "Lookup failed.";
+      $("autoLocateStatus").style.color = "#c33";
+    }
   };
 
   $("saveBtn").onclick = async () => {
-    const payload = {
-      wifi: { ssid: $("ssid").value, password: $("password").value },
-      location: { lat: $("lat").value ? parseFloat($("lat").value) : null, lon: $("lon").value ? parseFloat($("lon").value) : null },
-      holidayCountryCode: $("countryCode").value,
-      calendarFeeds: $("calendarFeeds").value.split("\n").filter(Boolean),
-      newsFeeds: $("feeds").value.split("\n").filter(Boolean),
-      compliments: { 
-        morning: $("complimentsMorning").value.split("\n").filter(Boolean),
-        afternoon: $("complimentsAfternoon").value.split("\n").filter(Boolean),
-        evening: $("complimentsEvening").value.split("\n").filter(Boolean),
-        anytime: $("complimentsAnytime").value.split("\n").filter(Boolean)
-      }
-    };
-    await fetch("/api/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-    $("status").textContent = "Saved!";
-    $("applyBtn").disabled = false;
+    await saveSettings(true);
   };
 
   $("applyBtn").onclick = async () => {
     $("overlay").classList.add("show");
-    fetch("/api/apply", { method: "POST" });
+    $("spinner").style.display = "";
+    $("overlayPill").className = "overlayPill";
+    $("overlayPill").textContent = "MagicMirror is updating...";
+    $("overlayLine1").innerHTML = `<b>SAVING...</b>`;
+    $("overlayLine2").textContent = "Saving current settings first...";
+
+    try {
+      const saved = await saveSettings(false);
+
+      if (!saved?.wifi?.ssid) {
+        throw new Error("No WiFi SSID saved.");
+      }
+
+      $("overlayLine1").innerHTML = `<b>STARTING...</b>`;
+      $("overlayLine2").textContent = `Saved '${saved.wifi.ssid}'. Starting apply process...`;
+
+      const res = await fetch("/api/apply", { method: "POST" });
+      const out = await res.json();
+
+      if (!res.ok || !out.ok) {
+        throw new Error(out.error || "Failed to start apply process");
+      }
+    } catch (err) {
+      $("spinner").style.display = "none";
+      $("overlayPill").className = "overlayPill err";
+      $("overlayPill").textContent = "Error Occurred";
+      $("overlayLine1").innerHTML = `<b>ERROR...</b>`;
+      $("overlayLine2").textContent = err.message;
+      return;
+    }
+
     const poller = setInterval(async () => {
       try {
         const st = await (await fetch("/api/apply/status")).json();
-        $("overlayLine1").innerHTML = `<b>${st.step.toUpperCase()}...</b>`;
-        $("overlayLine2").textContent = st.message;
-        
+        $("overlayLine1").innerHTML = `<b>${String(st.step || "working").toUpperCase()}...</b>`;
+        $("overlayLine2").textContent = st.message || "";
+
         if (st.step === "done") {
           $("spinner").style.display = "none";
           $("overlayPill").className = "overlayPill ok";
           $("overlayPill").textContent = "Update Complete!";
           clearInterval(poller);
         }
+
         if (st.step === "error") {
           $("spinner").style.display = "none";
           $("overlayPill").className = "overlayPill err";
           $("overlayPill").textContent = "Error Occurred";
-          $("overlayLine2").textContent = st.lastError || st.message;
+          $("overlayLine2").textContent = st.lastError || st.message || "Unknown error";
           clearInterval(poller);
         }
-      } catch(e) {
-        // Handle connection drop (expected during WiFi switch)
+      } catch (e) {
         if (window.location.hostname === "10.42.0.1") {
-           $("overlayLine1").innerHTML = `<b>SWITCHING...</b>`;
-           $("overlayLine2").textContent = "Mirror has likely moved to WiFi.";
+          $("overlayLine1").innerHTML = `<b>SWITCHING...</b>`;
+          $("overlayLine2").textContent = "Mirror has likely moved to WiFi.";
         }
       }
     }, 2000);

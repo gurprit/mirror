@@ -2,7 +2,6 @@ const express = require("express");
 const { exec } = require("child_process");
 const fs = require("fs");
 const path = require("path");
-const https = require("https");
 const os = require("os");
 
 const app = express();
@@ -97,23 +96,67 @@ function ensureDataFiles() {
   }
 }
 
+function sanitizeSettings(input) {
+  const safe = {
+    ...defaultSettings(),
+    ...(input || {}),
+    wifi: { ...defaultSettings().wifi, ...((input && input.wifi) || {}) },
+    location: { ...defaultSettings().location, ...((input && input.location) || {}) },
+    compliments: { ...defaultSettings().compliments, ...((input && input.compliments) || {}) }
+  };
+
+  safe.wifi.ssid = String(safe.wifi.ssid || "").trim();
+  safe.wifi.password = String(safe.wifi.password || "");
+
+  safe.location.lat = safe.location.lat === null || safe.location.lat === "" ? null : Number(safe.location.lat);
+  safe.location.lon = safe.location.lon === null || safe.location.lon === "" ? null : Number(safe.location.lon);
+
+  if (!Number.isFinite(safe.location.lat)) safe.location.lat = null;
+  if (!Number.isFinite(safe.location.lon)) safe.location.lon = null;
+
+  safe.holidayCountryCode = String(safe.holidayCountryCode || "gb").toLowerCase();
+
+  safe.calendarFeeds = Array.isArray(safe.calendarFeeds)
+    ? safe.calendarFeeds.map(v => String(v || "").trim()).filter(Boolean)
+    : [];
+
+  safe.newsFeeds = Array.isArray(safe.newsFeeds)
+    ? safe.newsFeeds.map(v => String(v || "").trim()).filter(Boolean)
+    : [];
+
+  for (const key of ["morning", "afternoon", "evening", "anytime"]) {
+    safe.compliments[key] = Array.isArray(safe.compliments[key])
+      ? safe.compliments[key].map(v => String(v || "").trim()).filter(Boolean)
+      : [];
+  }
+
+  return safe;
+}
+
 function readSettings() {
   try {
     ensureDataFiles();
     const raw = JSON.parse(fs.readFileSync(SETTINGS_PATH, "utf8"));
-    return { ...defaultSettings(), ...raw };
-  } catch { return defaultSettings(); }
+    return sanitizeSettings(raw);
+  } catch {
+    return defaultSettings();
+  }
 }
 
 function writeSettings(data) {
   ensureDataFiles();
-  fs.writeFileSync(SETTINGS_PATH, JSON.stringify(data, null, 2), "utf8");
+  const clean = sanitizeSettings(data);
+  fs.writeFileSync(SETTINGS_PATH, JSON.stringify(clean, null, 2), "utf8");
+  return clean;
 }
 
 function execP(cmd, timeout = 20000) {
   return new Promise((resolve, reject) => {
     exec(cmd, { timeout }, (err, stdout, stderr) => {
-      if (err) { reject(new Error((stderr || "").trim() || err.message)); return; }
+      if (err) {
+        reject(new Error((stderr || "").trim() || err.message));
+        return;
+      }
       resolve((stdout || "").trim());
     });
   });
@@ -134,7 +177,9 @@ function getFeedTitle(url) {
     const parts = domain.split(".");
     const name = parts.length > 1 ? parts[parts.length - 2] : parts[0];
     return name.charAt(0).toUpperCase() + name.slice(1);
-  } catch (e) { return "News Feed"; }
+  } catch {
+    return "News Feed";
+  }
 }
 
 function buildConfigJs(settings) {
@@ -142,14 +187,14 @@ function buildConfigJs(settings) {
   const lon = normalizeCoordinate(settings.location?.lon);
   const hasLatLon = Number.isFinite(lat) && Number.isFinite(lon);
   const holidayCalendarUrl = HOLIDAY_CALENDAR_URLS[settings.holidayCountryCode] || HOLIDAY_CALENDAR_URLS.gb;
-  
+
   const customCalendars = (settings.calendarFeeds || [])
-    .filter(u => u.trim())
+    .filter(u => typeof u === "string" && u.trim())
     .map(u => `          { symbol: "calendar-check", url: ${jsString(u.trim())} }`)
     .join(",\n");
 
   const feedObjects = (settings.newsFeeds || [])
-    .filter(u => u.trim().startsWith("http"))
+    .filter(u => typeof u === "string" && u.trim().startsWith("http"))
     .map(u => `          { title: ${jsString(getFeedTitle(u))}, url: ${jsString(u.trim())} }`)
     .join(",\n");
 
@@ -170,121 +215,247 @@ let config = {
   modules: [
     { module: "alert" },
     { module: "clock", position: "top_left" },
-    { 
-      module: "calendar", 
-      header: "Calendars", 
-      position: "top_left", 
-      config: { 
+    {
+      module: "calendar",
+      header: "Calendars",
+      position: "top_left",
+      config: {
         calendars: [
           { url: ${jsString(holidayCalendarUrl)} }${customCalendars ? `,\n${customCalendars}` : ""}
-        ] 
-      } 
+        ]
+      }
     },
-    { 
-      module: "compliments", 
-      position: "lower_third", 
-      config: { 
-        compliments: { 
-          morning: ${JSON.stringify(settings.compliments.morning)}, 
-          afternoon: ${JSON.stringify(settings.compliments.afternoon)}, 
-          evening: ${JSON.stringify(settings.compliments.evening)}, 
-          anytime: ${JSON.stringify(settings.compliments.anytime)} 
-        } 
-      } 
+    {
+      module: "compliments",
+      position: "lower_third",
+      config: {
+        compliments: {
+          morning: ${JSON.stringify(settings.compliments?.morning || [])},
+          afternoon: ${JSON.stringify(settings.compliments?.afternoon || [])},
+          evening: ${JSON.stringify(settings.compliments?.evening || [])},
+          anytime: ${JSON.stringify(settings.compliments?.anytime || [])}
+        }
+      }
     }${weatherModules},
-    { 
-      module: "newsfeed", 
-      position: "bottom_bar", 
-      config: { 
+    {
+      module: "newsfeed",
+      position: "bottom_bar",
+      config: {
         feeds: [
           ${feedObjects || `{ title: "BBC", url: "https://feeds.bbci.co.uk/news/rss.xml" }`}
-        ], 
-        showSourceTitle: true 
-      } 
+        ],
+        showSourceTitle: true
+      }
     }
   ]
 };
 if (typeof module !== "undefined") { module.exports = config; }`;
 }
 
-app.get("/api/settings", (req, res) => res.json(readSettings()));
+function saveMagicMirrorConfig(settings) {
+  const mmDir = "/home/gurprit/MagicMirror";
+  const configDir = path.join(mmDir, "config");
+  if (!fs.existsSync(configDir)) fs.mkdirSync(configDir, { recursive: true });
+  fs.writeFileSync(path.join(configDir, "config.js"), buildConfigJs(settings), "utf8");
+}
+
+app.get("/api/settings", (req, res) => {
+  res.json(readSettings());
+});
+
 app.post("/api/settings", (req, res) => {
-  const newSettings = { ...readSettings(), ...req.body };
-  writeSettings(newSettings);
-
   try {
-    const mmDir = "/home/gurprit/MagicMirror";
-    const configDir = path.join(mmDir, "config");
-    if (!fs.existsSync(configDir)) fs.mkdirSync(configDir, { recursive: true });
-    fs.writeFileSync(path.join(configDir, "config.js"), buildConfigJs(newSettings), "utf8");
-  } catch (err) {
-    console.error("Failed to update MagicMirror config.js:", err);
-  }
+    const current = readSettings();
+    const incoming = sanitizeSettings(req.body || {});
 
-  res.json({ ok: true });
+    const merged = sanitizeSettings({
+      ...current,
+      ...incoming,
+      wifi: { ...current.wifi, ...incoming.wifi },
+      location: { ...current.location, ...incoming.location },
+      compliments: { ...current.compliments, ...incoming.compliments }
+    });
+
+    const saved = writeSettings(merged);
+    saveMagicMirrorConfig(saved);
+
+    res.json({ ok: true, settings: saved });
+  } catch (err) {
+    console.error("Failed to save settings:", err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
 });
 
 app.get("/api/device/info", (req, res) => {
   const interfaces = os.networkInterfaces();
   let ip = null;
+
   for (const infos of Object.values(interfaces)) {
+    if (!Array.isArray(infos)) continue;
     for (const info of infos) {
-      if (info.family === "IPv4" && !info.internal) { ip = info.address; break; }
+      if (info.family === "IPv4" && !info.internal) {
+        ip = info.address;
+        break;
+      }
     }
+    if (ip) break;
   }
+
   res.json({ ok: true, ip, hostname: os.hostname() });
 });
 
 app.get("/api/wifi/scan", (req, res) => {
-  exec("sudo nmcli -t -f SSID,SIGNAL dev wifi list ifname wlan0", (err, stdout) => {
-    if (err) return res.status(500).json({ ok: false, error: err.message });
+  exec("sudo nmcli -t -f SSID,SIGNAL dev wifi list ifname wlan0", (err, stdout, stderr) => {
+    if (err) {
+      return res.status(500).json({ ok: false, error: (stderr || err.message || "").trim() });
+    }
+
     const seen = new Set();
-    const networks = stdout.split("\n").filter(Boolean).map(line => {
-      const [ssid, signal] = line.split(":");
-      return { ssid: ssid.trim(), signal: Number(signal) };
-    }).filter(n => n.ssid && !seen.has(n.ssid) && seen.add(n.ssid))
-    .sort((a, b) => b.signal - a.signal);
+
+    const networks = stdout
+      .split("\n")
+      .filter(Boolean)
+      .map(line => {
+        const idx = line.lastIndexOf(":");
+        if (idx === -1) return null;
+
+        const ssid = line.slice(0, idx).replace(/\\:/g, ":").trim();
+        const signal = Number(line.slice(idx + 1).trim());
+
+        return { ssid, signal: Number.isFinite(signal) ? signal : 0 };
+      })
+      .filter(n => n && n.ssid && !seen.has(n.ssid) && seen.add(n.ssid))
+      .sort((a, b) => b.signal - a.signal);
+
     res.json({ ok: true, networks });
   });
 });
 
-app.get("/api/apply/status", (req, res) => res.json({ ok: true, ...applyState }));
+app.get("/api/apply/status", (req, res) => {
+  res.json({ ok: true, ...applyState });
+});
 
 app.post("/api/apply", async (req, res) => {
+  if (applyState.running) {
+    return res.status(409).json({ ok: false, error: "Apply already in progress" });
+  }
+
   const s = readSettings();
   res.json({ ok: true });
+
   setApply("starting", "Preparing update...");
+
   setTimeout(async () => {
     try {
-      await execP("sudo nmcli radio wifi on");
-      try { await execP("sudo systemctl stop mm-hotspot"); } catch {}
-
-      let currentSsid = "";
-      try {
-        const out = await execP("sudo nmcli -t -f active,ssid dev wifi");
-        const match = out.split("\n").find(line => line.startsWith("yes:"));
-        if (match) currentSsid = match.substring(4).trim();
-      } catch(e) {}
-
-      if (!s.wifi.ssid || !s.wifi.password || currentSsid === s.wifi.ssid) {
-        setApply("wifi", `Skipping WiFi connection for ${s.wifi.ssid || "empty SSID"}...`);
-      } else {
-        setApply("wifi", `Connecting to ${s.wifi.ssid}...`);
-        await execP(`sudo nmcli dev wifi connect ${shQuote(s.wifi.ssid)} password ${shQuote(s.wifi.password)} ifname wlan0`, 45000);
+      if (!s.wifi?.ssid || !s.wifi.ssid.trim()) {
+        throw new Error("No WiFi SSID saved.");
       }
-      
+
+      const targetSsid = s.wifi.ssid.trim();
+      const targetPassword = String(s.wifi.password || "");
+
+      await execP("sudo nmcli radio wifi on");
+
+      setApply("hotspot", "Stopping hotspot service...");
+      try {
+        await execP("sudo systemctl stop mm-hotspot");
+      } catch {}
+
+      setApply("hotspot", "Disconnecting hotspot connection...");
+      try {
+        await execP("sudo nmcli connection down Hotspot");
+      } catch {}
+
+      setApply("hotspot", "Disconnecting wlan0...");
+      try {
+        await execP("sudo nmcli device disconnect wlan0");
+      } catch {}
+
+      setApply("hotspot", "Waiting for wlan0 to settle...");
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      setApply("hotspot", "Rescanning WiFi...");
+      try {
+        await execP("sudo nmcli device wifi rescan ifname wlan0");
+      } catch {}
+
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      setApply("wifi", `Connecting to ${targetSsid}...`);
+
+      const connectErrors = [];
+
+      if (targetPassword) {
+        try {
+          await execP(
+            `sudo nmcli dev wifi connect ${shQuote(targetSsid)} password ${shQuote(targetPassword)} ifname wlan0`,
+            45000
+          );
+        } catch (err) {
+          connectErrors.push(`direct-connect-with-password failed: ${err.message}`);
+
+          try {
+            await execP(
+              `sudo nmcli connection modify ${shQuote(targetSsid)} 802-11-wireless-security.key-mgmt wpa-psk 802-11-wireless-security.psk ${shQuote(targetPassword)}`,
+              20000
+            );
+            await execP(`sudo nmcli connection up ${shQuote(targetSsid)}`, 45000);
+          } catch (err2) {
+            connectErrors.push(`modify-and-up failed: ${err2.message}`);
+          }
+        }
+      } else {
+        try {
+          await execP(`sudo nmcli connection up ${shQuote(targetSsid)}`, 45000);
+        } catch (err) {
+          connectErrors.push(`saved-connection-up failed: ${err.message}`);
+
+          try {
+            await execP(
+              `sudo nmcli dev wifi connect ${shQuote(targetSsid)} ifname wlan0`,
+              45000
+            );
+          } catch (err2) {
+            connectErrors.push(`open-network-connect failed: ${err2.message}`);
+          }
+        }
+      }
+
+      let activeSsid = "";
+      try {
+        const out = await execP("sudo nmcli -t -f ACTIVE,SSID dev wifi");
+        const match = out.split("\n").find(line => line.startsWith("yes:"));
+        if (match) {
+          activeSsid = match.substring(4).replace(/\\:/g, ":").trim();
+        }
+      } catch (err) {
+        connectErrors.push(`active-ssid-check failed: ${err.message}`);
+      }
+
+      if (activeSsid !== targetSsid) {
+        throw new Error(
+          [
+            `Failed to connect to '${targetSsid}'.`,
+            `Active SSID after attempt: '${activeSsid || "none"}'.`,
+            ...connectErrors
+          ].join(" ")
+        );
+      }
+
       setApply("config", "Finalizing config...");
-      const mmDir = "/home/gurprit/MagicMirror";
-      const configDir = path.join(mmDir, "config");
-      if (!fs.existsSync(configDir)) fs.mkdirSync(configDir, { recursive: true });
-      fs.writeFileSync(path.join(configDir, "config.js"), buildConfigJs(s), "utf8");
-      
+      saveMagicMirrorConfig(s);
+
       setApply("done", "Success! Rebooting...");
-      try { await execP("sudo rm -f /boot/mm-setup"); } catch {}
+      try { await execP(`sudo rm -f ${shQuote(SETUP_FLAG)}`); } catch {}
       setTimeout(() => exec("sudo reboot"), 2000);
+
     } catch (e) {
+      console.error("Apply failed:", e.message);
       setApply("error", "Failed. Restoring hotspot...", e.message);
-      try { await execP("sudo systemctl restart mm-hotspot"); } catch {}
+
+      try {
+        await execP("sudo systemctl restart mm-hotspot");
+      } catch {}
     }
   }, 500);
 });
