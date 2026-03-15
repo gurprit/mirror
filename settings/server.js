@@ -209,7 +209,18 @@ if (typeof module !== "undefined") { module.exports = config; }`;
 
 app.get("/api/settings", (req, res) => res.json(readSettings()));
 app.post("/api/settings", (req, res) => {
-  writeSettings({ ...readSettings(), ...req.body });
+  const newSettings = { ...readSettings(), ...req.body };
+  writeSettings(newSettings);
+
+  try {
+    const mmDir = "/home/gurprit/MagicMirror";
+    const configDir = path.join(mmDir, "config");
+    if (!fs.existsSync(configDir)) fs.mkdirSync(configDir, { recursive: true });
+    fs.writeFileSync(path.join(configDir, "config.js"), buildConfigJs(newSettings), "utf8");
+  } catch (err) {
+    console.error("Failed to update MagicMirror config.js:", err);
+  }
+
   res.json({ ok: true });
 });
 
@@ -245,14 +256,28 @@ app.post("/api/apply", async (req, res) => {
   setApply("starting", "Preparing update...");
   setTimeout(async () => {
     try {
-      setApply("wifi", `Connecting to ${s.wifi.ssid}...`);
       await execP("sudo nmcli radio wifi on");
       try { await execP("sudo systemctl stop mm-hotspot"); } catch {}
-      await execP(`sudo nmcli dev wifi connect ${shQuote(s.wifi.ssid)} password ${shQuote(s.wifi.password)} ifname wlan0`, 45000);
+
+      let currentSsid = "";
+      try {
+        const out = await execP("sudo nmcli -t -f active,ssid dev wifi");
+        const match = out.split("\n").find(line => line.startsWith("yes:"));
+        if (match) currentSsid = match.substring(4).trim();
+      } catch(e) {}
+
+      if (!s.wifi.ssid || !s.wifi.password || currentSsid === s.wifi.ssid) {
+        setApply("wifi", `Skipping WiFi connection for ${s.wifi.ssid || "empty SSID"}...`);
+      } else {
+        setApply("wifi", `Connecting to ${s.wifi.ssid}...`);
+        await execP(`sudo nmcli dev wifi connect ${shQuote(s.wifi.ssid)} password ${shQuote(s.wifi.password)} ifname wlan0`, 45000);
+      }
       
       setApply("config", "Finalizing config...");
       const mmDir = "/home/gurprit/MagicMirror";
-      fs.writeFileSync(path.join(mmDir, "config", "config.js"), buildConfigJs(s), "utf8");
+      const configDir = path.join(mmDir, "config");
+      if (!fs.existsSync(configDir)) fs.mkdirSync(configDir, { recursive: true });
+      fs.writeFileSync(path.join(configDir, "config.js"), buildConfigJs(s), "utf8");
       
       setApply("done", "Success! Rebooting...");
       try { await execP("sudo rm -f /boot/mm-setup"); } catch {}
