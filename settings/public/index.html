@@ -61,6 +61,7 @@
   <input id="ssid" placeholder="WiFi Name" autocomplete="off" />
   <label>Password</label>
   <input id="password" type="password" placeholder="Password" autocomplete="off" />
+  <button id="applyBtn" style="margin-top:10px;" class="secondary" disabled>Update and reboot</button>
 </div>
 
 <div class="card">
@@ -107,7 +108,6 @@
 
 <div class="card">
   <button id="saveBtn">Save Settings</button>
-  <button id="applyBtn" style="margin-top:10px;" disabled>Apply & Reboot</button>
   <div id="status" class="small"></div>
 </div>
 
@@ -230,6 +230,7 @@
           $("spinner").style.display = "none";
           $("overlayPill").className = "overlayPill err";
           $("overlayPill").textContent = "Error Occurred";
+          $("overlayLine2").textContent = st.lastError || st.message;
           clearInterval(poller);
         }
       } catch(e) {
