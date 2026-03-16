@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>MagicMirror Setup</title>
+<title>Mirror Settings</title>
 <style>
   body { font-family: system-ui, -apple-system, sans-serif; margin: 16px; max-width: 720px; background: #f5f5f7; }
   h1 { margin: 0 0 8px; }
@@ -13,7 +13,15 @@
   .err { color: #c33; }
   .card { background: white; border-radius: 14px; padding: 16px; margin: 14px 0; box-shadow: 0 3px 10px rgba(0,0,0,0.06); }
   label { font-weight: 600; display: block; margin-top: 12px; }
-  input, textarea, button, select { width: 100%; padding: 12px; margin-top: 6px; border-radius: 10px; border: 1px solid #ddd; font-size: 16px; box-sizing: border-box; }
+  input, textarea, button, select {
+    width: 100%;
+    padding: 12px;
+    margin-top: 6px;
+    border-radius: 10px;
+    border: 1px solid #ddd;
+    font-size: 16px;
+    box-sizing: border-box;
+  }
   textarea { resize: vertical; min-height: 180px; }
   button { background: #111; color: white; border: none; cursor: pointer; font-weight: 600; }
   button.secondary { background: #eee; color: #111; }
@@ -40,7 +48,17 @@
     border-color: #86ddb0;
   }
 
-  .urlBox { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: #f3fff9; border: 1px solid #bdf0d3; font-family: monospace; font-size: 14px; color: #0a7; }
+  .urlBox {
+    margin-top: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #f3fff9;
+    border: 1px solid #bdf0d3;
+    font-family: monospace;
+    font-size: 14px;
+    color: #0a7;
+  }
+
   .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px; }
   .tabBtn { background: #eee; color: #111; border: 1px solid #ddd; padding: 10px; border-radius: 10px; cursor: pointer; }
   .tabBtn.active { background: #111; color: #fff; }
@@ -48,28 +66,77 @@
   .tabPane.active { display: block; }
   .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
-  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: none; align-items: center; justify-content: center; padding: 18px; z-index: 9999; }
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+    z-index: 9999;
+  }
   .overlay.show { display: flex; }
-  .overlayCard { background: white; border-radius: 16px; padding: 18px; width: 100%; max-width: 520px; box-shadow: 0 10px 30px rgba(0,0,0,0.25); }
+  .overlayCard {
+    background: white;
+    border-radius: 16px;
+    padding: 18px;
+    width: 100%;
+    max-width: 520px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+  }
   .overlayTitle { font-size: 20px; font-weight: 900; margin-bottom: 6px; }
-  .overlayPill { display:inline-block; margin-top: 12px; background:#111; color:#fff; padding: 6px 10px; border-radius: 999px; font-size: 13px; }
+  .overlayPill {
+    display:inline-block;
+    margin-top: 12px;
+    background:#111;
+    color:#fff;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 13px;
+  }
   .overlayPill.ok { background:#0a7; }
   .overlayPill.err { background:#c33; }
   .overlayHint { margin-top: 10px; font-size: 13px; color:#666; }
   .progressRow { margin-top: 10px; display:flex; gap:10px; align-items:center; }
-  .spinner { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #ddd; border-top-color: #111; animation: spin 0.9s linear infinite; flex: 0 0 auto; }
+  .spinner {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid #ddd;
+    border-top-color: #111;
+    animation: spin 0.9s linear infinite;
+    flex: 0 0 auto;
+  }
   @keyframes spin { to { transform: rotate(360deg); } }
+
+  .handoverBox {
+    display: none;
+    margin-top: 16px;
+  }
+  .countdownCard {
+    margin-top: 14px;
+    padding: 12px;
+    border-radius: 12px;
+    background: #f6f6f6;
+    border: 1px solid #e5e5e5;
+  }
+  .countdownNumber {
+    font-size: 32px;
+    font-weight: 900;
+    margin-top: 4px;
+  }
 </style>
 </head>
 
 <body>
-<h1>MagicMirror Setup</h1>
+<h1>Mirror Settings</h1>
 
 <div class="card">
   <h2>Device Address</h2>
   <div id="deviceInfoStatus" class="small">After adding connection settings revisit this page on:</div>
   <div class="urlBox">
-    <a href="http://mirror.local:3001/" style="color:#0a7; text-decoration: none; font-weight: bold;">http://mirror.local:3001/</a>
+    <a id="deviceLink" href="http://mirror.local:3001/" style="color:#0a7; text-decoration: none; font-weight: bold;">http://mirror.local:3001/</a>
   </div>
 </div>
 
@@ -137,18 +204,47 @@
 
 <div class="overlay" id="overlay">
   <div class="overlayCard">
-    <div class="overlayTitle">Applying settings...</div>
-    <div class="progressRow">
+    <div class="overlayTitle" id="overlayTitle">Applying settings...</div>
+
+    <div class="progressRow" id="overlayProgressRow">
       <div class="spinner" id="spinner"></div>
       <div>
         <div id="overlayLine1"><b>Starting...</b></div>
         <div class="small" id="overlayLine2">Please wait...</div>
       </div>
     </div>
+
     <div class="overlayPill" id="overlayPill">MagicMirror is updating...</div>
+
     <div class="overlayHint" id="overlayHint">
       If the Mirror has joined your WiFi, the hotspot will close.<br>
-      Revisit on <a href="http://mirror.local:3001/" style="color:#0a7; font-weight:bold;">http://mirror.local:3001/</a>
+      Revisit on
+      <a id="reconnectLink" href="http://mirror.local:3001/" style="color:#0a7; font-weight:bold;">
+        http://mirror.local:3001/
+      </a>
+    </div>
+
+    <div class="handoverBox" id="handoverBox">
+      <div style="font-size:15px; color:#444; line-height:1.45;">
+        The Mirror is switching from its setup hotspot to your home WiFi.<br>
+        Your phone may need to reconnect to the same WiFi network before setup can continue.
+      </div>
+
+      <div class="countdownCard">
+        <div style="font-weight:700; font-size:14px;">Reconnect in</div>
+        <div id="countdownText" class="countdownNumber">30s</div>
+      </div>
+
+      <button id="openMirrorBtn" style="margin-top:14px;">Open Mirror on WiFi</button>
+
+      <div class="small" style="margin-top:10px;">
+        Tap the button after your phone reconnects to your normal WiFi.
+      </div>
+
+      <div class="small" id="fallbackIpWrap" style="display:none; margin-top:8px;">
+        If <b>mirror.local</b> does not open, try
+        <a id="fallbackIpLink" href="#" style="color:#0a7; font-weight:bold;"></a>
+      </div>
     </div>
   </div>
 </div>
@@ -158,6 +254,9 @@
   const isHotspot = window.location.hostname === "10.42.0.1";
   let isDirty = false;
   let isSaving = false;
+  let deviceInfo = { hostname: "mirror", ip: null };
+  let handoverCountdownTimer = null;
+  let handoverSecondsRemaining = 30;
 
   const COUNTRY_OPTIONS = [
     ["au", "Australia"], ["at", "Austria"], ["be", "Belgium"], ["br", "Brazil"], ["ca", "Canada"],
@@ -247,6 +346,120 @@
     };
   }
 
+  function getHostnameUrl() {
+    return `http://${deviceInfo.hostname}.local:3001/`;
+  }
+
+  function getIpUrl() {
+    return deviceInfo.ip ? `http://${deviceInfo.ip}:3001/` : "";
+  }
+
+  function updateReconnectLinks() {
+    const hostnameUrl = getHostnameUrl();
+    $("deviceLink").href = hostnameUrl;
+    $("deviceLink").textContent = hostnameUrl;
+    $("reconnectLink").href = hostnameUrl;
+    $("reconnectLink").textContent = hostnameUrl;
+
+    $("openMirrorBtn").onclick = () => {
+      window.location.href = hostnameUrl;
+    };
+
+    const ipUrl = getIpUrl();
+    if (ipUrl) {
+      $("fallbackIpWrap").style.display = "";
+      $("fallbackIpLink").href = ipUrl;
+      $("fallbackIpLink").textContent = ipUrl;
+    } else {
+      $("fallbackIpWrap").style.display = "none";
+    }
+  }
+
+  function stopHandoverCountdown() {
+    if (handoverCountdownTimer) {
+      clearInterval(handoverCountdownTimer);
+      handoverCountdownTimer = null;
+    }
+  }
+
+  function startHandoverCountdown(seconds = 30) {
+    stopHandoverCountdown();
+    handoverSecondsRemaining = seconds;
+    $("countdownText").textContent = `${handoverSecondsRemaining}s`;
+    $("openMirrorBtn").textContent = "Open Mirror on WiFi";
+
+    handoverCountdownTimer = setInterval(() => {
+      handoverSecondsRemaining -= 1;
+      $("countdownText").textContent = `${handoverSecondsRemaining}s`;
+
+      if (handoverSecondsRemaining <= 10) {
+        $("openMirrorBtn").textContent = "Try opening Mirror now";
+      }
+
+      if (handoverSecondsRemaining <= 0) {
+        stopHandoverCountdown();
+        window.location.href = getHostnameUrl();
+      }
+    }, 1000);
+  }
+
+  function resetOverlayToProgressMode() {
+    stopHandoverCountdown();
+    $("overlayProgressRow").style.display = "flex";
+    $("handoverBox").style.display = "none";
+    $("overlayHint").style.display = "block";
+    $("spinner").style.display = "";
+  }
+
+  function showHandoverScreen() {
+    $("overlayTitle").textContent = "Connecting to WiFi...";
+    $("overlayLine1").innerHTML = "<b>SWITCHING NETWORKS...</b>";
+    $("overlayLine2").textContent = "The setup hotspot is closing and the Mirror is joining your WiFi.";
+    $("spinner").style.display = "none";
+    $("overlayPill").className = "overlayPill ok";
+    $("overlayPill").textContent = "Almost there";
+    $("overlayProgressRow").style.display = "flex";
+    $("handoverBox").style.display = "block";
+    $("overlayHint").style.display = "none";
+
+    updateReconnectLinks();
+    startHandoverCountdown(30);
+  }
+
+  function showSetupComplete() {
+    stopHandoverCountdown();
+
+    const hostnameUrl = getHostnameUrl();
+    const ipUrl = getIpUrl();
+
+    $("overlayTitle").textContent = "Setup complete";
+    $("overlayLine1").innerHTML = "<b>CONNECTED...</b>";
+    $("overlayLine2").textContent = "The Mirror has joined your WiFi.";
+    $("spinner").style.display = "none";
+    $("overlayPill").className = "overlayPill ok";
+    $("overlayPill").textContent = "Ready to use";
+    $("handoverBox").style.display = "none";
+    $("overlayHint").style.display = "block";
+
+    $("overlayHint").innerHTML = `
+      Reconnect to the setup page on<br>
+      <a id="reconnectLink" href="${hostnameUrl}" style="color:#0a7; font-weight:bold;">${hostnameUrl}</a>
+      ${ipUrl ? `<br><span class="small">If .local does not work, try <a href="${ipUrl}" style="color:#0a7; font-weight:bold;">${ipUrl}</a></span>` : ""}
+    `;
+  }
+
+  async function loadDeviceInfo() {
+    try {
+      const res = await fetch("/api/device/info");
+      const out = await res.json();
+      if (out.ok) {
+        deviceInfo.hostname = out.hostname || "mirror";
+        deviceInfo.ip = out.ip || null;
+        updateReconnectLinks();
+      }
+    } catch {}
+  }
+
   async function saveSettings(showSavedMessage = true) {
     if (isSaving) return null;
 
@@ -323,6 +536,10 @@
 
       clearDirty();
       highlightSelectedNetwork($("ssid").value.trim());
+
+      if (!isHotspot) {
+        $("scanStatus").textContent = "Mirror is already on WiFi.";
+      }
     } catch (err) {
       $("status").textContent = `Failed to load settings: ${err.message}`;
       $("status").className = "small err";
@@ -421,11 +638,13 @@
 
   $("applyBtn").onclick = async () => {
     $("overlay").classList.add("show");
-    $("spinner").style.display = "";
+    resetOverlayToProgressMode();
+    $("overlayTitle").textContent = "Applying settings...";
     $("overlayPill").className = "overlayPill";
     $("overlayPill").textContent = "MagicMirror is updating...";
     $("overlayLine1").innerHTML = `<b>SAVING...</b>`;
     $("overlayLine2").textContent = "Saving current settings first...";
+    updateReconnectLinks();
 
     try {
       const saved = await saveSettings(false);
@@ -459,10 +678,15 @@
         $("overlayLine2").textContent = st.message || "";
 
         if (st.step === "done") {
-          $("spinner").style.display = "none";
-          $("overlayPill").className = "overlayPill ok";
-          $("overlayPill").textContent = "Update Complete!";
           clearInterval(poller);
+          showSetupComplete();
+
+          setTimeout(() => {
+            const hostnameUrl = getHostnameUrl();
+            try {
+              window.location.href = hostnameUrl;
+            } catch {}
+          }, 4000);
         }
 
         if (st.step === "error") {
@@ -474,8 +698,8 @@
         }
       } catch (e) {
         if (window.location.hostname === "10.42.0.1") {
-          $("overlayLine1").innerHTML = `<b>SWITCHING...</b>`;
-          $("overlayLine2").textContent = "Mirror has likely moved to WiFi.";
+          clearInterval(poller);
+          showHandoverScreen();
         }
       }
     }, 2000);
@@ -490,6 +714,7 @@
   });
 
   populateCountries();
+  loadDeviceInfo();
   load();
 </script>
 </body>

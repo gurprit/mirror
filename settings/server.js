@@ -8,7 +8,7 @@ const app = express();
 
 const PORT = 3001;
 const SETUP_FLAG = "/boot/mm-setup";
-const DATA_DIR = "/home/gurprit/mm-setup-data";
+const DATA_DIR = path.join(__dirname, "data");
 const SETTINGS_PATH = path.join(DATA_DIR, "settings.json");
 
 app.use(express.json());
@@ -445,7 +445,7 @@ app.post("/api/apply", async (req, res) => {
       setApply("config", "Finalizing config...");
       saveMagicMirrorConfig(s);
 
-      setApply("done", "Success! Rebooting...");
+      setApply("done", "Connected successfully. Rebooting now...");
       try { await execP(`sudo rm -f ${shQuote(SETUP_FLAG)}`); } catch {}
       setTimeout(() => exec("sudo reboot"), 2000);
 
