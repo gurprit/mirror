@@ -3,6 +3,7 @@ const { exec } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
+const crypto = require("crypto");
 
 const app = express();
 
@@ -10,6 +11,7 @@ const PORT = 3001;
 const SETUP_FLAG = "/boot/mm-setup";
 const DATA_DIR = path.join(__dirname, "data");
 const SETTINGS_PATH = path.join(DATA_DIR, "settings.json");
+const SPOTIFY_AUTH_BASE_URL = process.env.SPOTIFY_AUTH_BASE_URL || "";
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
@@ -86,6 +88,24 @@ function defaultSettings() {
     calendarFeeds: [],
     newsFeeds: [],
     compliments: { morning: [], afternoon: [], evening: [], anytime: [] },
+    traffic: {
+      enabled: false,
+      position: "top_right",
+      accessToken: "",
+      originCoords: "",
+      destinationCoords: "",
+      mode: "driving",
+      interval: 300000,
+      showSymbol: true,
+      firstLine: "{duration} mins",
+      secondLine: ""
+    },
+    spotify: {
+      enabled: false,
+      position: "middle_center",
+      displayWhenEmpty: "none",
+      mirrorId: crypto.randomUUID()
+    }
   };
 }
 
@@ -97,12 +117,16 @@ function ensureDataFiles() {
 }
 
 function sanitizeSettings(input) {
+  const defaults = defaultSettings();
+
   const safe = {
-    ...defaultSettings(),
+    ...defaults,
     ...(input || {}),
-    wifi: { ...defaultSettings().wifi, ...((input && input.wifi) || {}) },
-    location: { ...defaultSettings().location, ...((input && input.location) || {}) },
-    compliments: { ...defaultSettings().compliments, ...((input && input.compliments) || {}) }
+    wifi: { ...defaults.wifi, ...((input && input.wifi) || {}) },
+    location: { ...defaults.location, ...((input && input.location) || {}) },
+    compliments: { ...defaults.compliments, ...((input && input.compliments) || {}) },
+    traffic: { ...defaults.traffic, ...((input && input.traffic) || {}) },
+    spotify: { ...defaults.spotify, ...((input && input.spotify) || {}) }
   };
 
   safe.wifi.ssid = String(safe.wifi.ssid || "").trim();
@@ -129,6 +153,24 @@ function sanitizeSettings(input) {
       ? safe.compliments[key].map(v => String(v || "").trim()).filter(Boolean)
       : [];
   }
+
+  safe.traffic.enabled = !!safe.traffic.enabled;
+  safe.traffic.position = String(safe.traffic.position || "top_right");
+  safe.traffic.accessToken = String(safe.traffic.accessToken || "").trim();
+  safe.traffic.originCoords = String(safe.traffic.originCoords || "").trim();
+  safe.traffic.destinationCoords = String(safe.traffic.destinationCoords || "").trim();
+  safe.traffic.mode = ["driving", "walking", "cycling"].includes(safe.traffic.mode) ? safe.traffic.mode : "driving";
+  safe.traffic.interval = Number.isFinite(Number(safe.traffic.interval)) ? Number(safe.traffic.interval) : 300000;
+  safe.traffic.showSymbol = !!safe.traffic.showSymbol;
+  safe.traffic.firstLine = String(safe.traffic.firstLine || "{duration} mins").trim();
+  safe.traffic.secondLine = String(safe.traffic.secondLine || "").trim();
+
+  safe.spotify.enabled = !!safe.spotify.enabled;
+  safe.spotify.position = String(safe.spotify.position || "middle_center");
+  safe.spotify.displayWhenEmpty = ["logo", "none"].includes(safe.spotify.displayWhenEmpty)
+    ? safe.spotify.displayWhenEmpty
+    : "none";
+  safe.spotify.mirrorId = String(safe.spotify.mirrorId || crypto.randomUUID()).trim();
 
   return safe;
 }
@@ -208,6 +250,50 @@ function buildConfigJs(settings) {
       config: { weatherProvider: "openmeteo", type: "forecast", lat: ${lat}, lon: ${lon} }
     }` : "";
 
+  const trafficModule =
+    settings.traffic?.enabled &&
+    settings.traffic.accessToken &&
+    settings.traffic.originCoords &&
+    settings.traffic.destinationCoords
+      ? `,
+    {
+      module: "MMM-Traffic",
+      position: ${jsString(settings.traffic.position || "top_right")},
+      config: {
+        accessToken: ${jsString(settings.traffic.accessToken)},
+        originCoords: ${jsString(settings.traffic.originCoords)},
+        destinationCoords: ${jsString(settings.traffic.destinationCoords)},
+        mode: ${jsString(settings.traffic.mode || "driving")},
+        interval: ${Number(settings.traffic.interval || 300000)},
+        showSymbol: ${settings.traffic.showSymbol ? "true" : "false"},
+        firstLine: ${jsString(settings.traffic.firstLine || "{duration} mins")}${
+          settings.traffic.secondLine
+            ? `,\n        secondLine: ${jsString(settings.traffic.secondLine)}`
+            : ""
+        }
+      }
+    }`
+      : "";
+
+  const spotifyModule =
+    settings.spotify?.enabled &&
+    settings.spotify.mirrorId &&
+    SPOTIFY_AUTH_BASE_URL
+      ? `,
+    {
+      module: "MMM-SimpleSpotifyNowPlaying",
+      position: ${jsString(settings.spotify.position || "middle_center")},
+      config: {
+        authBaseUrl: ${jsString(SPOTIFY_AUTH_BASE_URL)},
+        mirrorId: ${jsString(settings.spotify.mirrorId)},
+        updateInterval: 10000,
+        hideWhenNothingPlaying: ${settings.spotify.displayWhenEmpty === "none" ? "true" : "false"},
+        showProgressBar: true,
+        showAlbumArt: true
+      }
+    }`
+      : "";
+
   return `
 let config = {
   address: "0.0.0.0", port: 8080, basePath: "/",
@@ -236,7 +322,7 @@ let config = {
           anytime: ${JSON.stringify(settings.compliments?.anytime || [])}
         }
       }
-    }${weatherModules},
+    }${weatherModules}${trafficModule}${spotifyModule},
     {
       module: "newsfeed",
       position: "bottom_bar",
@@ -273,7 +359,9 @@ app.post("/api/settings", (req, res) => {
       ...incoming,
       wifi: { ...current.wifi, ...incoming.wifi },
       location: { ...current.location, ...incoming.location },
-      compliments: { ...current.compliments, ...incoming.compliments }
+      compliments: { ...current.compliments, ...incoming.compliments },
+      traffic: { ...current.traffic, ...incoming.traffic },
+      spotify: { ...current.spotify, ...incoming.spotify }
     });
 
     const saved = writeSettings(merged);
@@ -284,6 +372,13 @@ app.post("/api/settings", (req, res) => {
     console.error("Failed to save settings:", err);
     res.status(500).json({ ok: false, error: err.message });
   }
+});
+
+app.get("/api/app-meta", (req, res) => {
+  res.json({
+    ok: true,
+    spotifyAuthBaseUrl: SPOTIFY_AUTH_BASE_URL || ""
+  });
 });
 
 app.get("/api/device/info", (req, res) => {

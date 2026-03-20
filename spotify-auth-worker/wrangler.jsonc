@@ -1,0 +1,12 @@
+{
+	"name": "spotify-mirror-auth",
+	"main": "src/index.js",
+	"compatibility_date": "2026-03-19",
+	"kv_namespaces": [
+
+		{
+			"binding": "SPOTIFY_KV",
+			"id": "8fae0fcbdde847c985bd93fbde42248c"
+		}
+	]
+}

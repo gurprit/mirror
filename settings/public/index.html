@@ -5,9 +5,10 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Mirror Settings</title>
 <style>
-  body { font-family: system-ui, -apple-system, sans-serif; margin: 16px; max-width: 720px; background: #f5f5f7; }
+  body { font-family: system-ui, -apple-system, sans-serif; margin: 16px; max-width: 760px; background: #f5f5f7; }
   h1 { margin: 0 0 8px; }
   h2 { margin: 0 0 10px; }
+  h3 { margin: 0 0 8px; font-size: 15px; }
   .small { font-size: 13px; color: #666; margin-top: 6px; }
   .ok { color: #0a7; }
   .err { color: #c33; }
@@ -126,6 +127,157 @@
     font-weight: 900;
     margin-top: 4px;
   }
+
+  .suggestedFeedsWrap {
+    margin-top: 14px;
+    padding: 12px;
+    border-radius: 12px;
+    background: #fafafa;
+    border: 1px solid #e8e8e8;
+  }
+
+  .feedControls {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+    align-items: end;
+    margin-top: 10px;
+  }
+
+  .feedControls button {
+    width: auto;
+    min-width: 110px;
+    margin-top: 0;
+  }
+
+  .feedFeedback {
+    margin-top: 10px;
+    min-height: 20px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .feedFeedback.ok { color: #0a7; }
+  .feedFeedback.err { color: #c33; }
+
+  .textareaPulse {
+    animation: pulseGlow 0.7s ease;
+  }
+
+  @keyframes pulseGlow {
+    0% { box-shadow: 0 0 0 rgba(10,167,119,0); border-color: #ddd; }
+    35% { box-shadow: 0 0 0 4px rgba(10,167,119,0.12); border-color: #86ddb0; }
+    100% { box-shadow: 0 0 0 rgba(10,167,119,0); border-color: #ddd; }
+  }
+
+  .checkboxLabel {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    margin-top: 12px;
+  }
+
+  .checkboxLabel input[type="checkbox"] {
+    width: auto;
+    margin: 0;
+    padding: 0;
+    transform: scale(1.1);
+  }
+
+  .statusBox {
+    margin-top: 12px;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid #e5e5e5;
+    background: #fafafa;
+  }
+
+  .statusRow {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .pill {
+    display: inline-block;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 700;
+    background: #eee;
+    color: #222;
+  }
+
+  .pill.ok {
+    background: #e8fff4;
+    color: #0a7;
+    border: 1px solid #bdebd3;
+  }
+
+  .pill.err {
+    background: #fff0f0;
+    color: #c33;
+    border: 1px solid #f0c0c0;
+  }
+
+  .buttonRow {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+  }
+
+  .buttonRow button {
+    width: auto;
+    min-width: 140px;
+  }
+
+  .qrWrap {
+    margin-top: 14px;
+    display: none;
+    text-align: center;
+    padding: 14px;
+    border-radius: 12px;
+    border: 1px dashed #ccc;
+    background: #fff;
+  }
+
+  .qrWrap.show {
+    display: block;
+  }
+
+  .qrImage {
+    max-width: 280px;
+    width: 100%;
+    height: auto;
+    display: block;
+    margin: 10px auto 0;
+    border-radius: 8px;
+    background: white;
+  }
+
+  .monoLink {
+    margin-top: 10px;
+    word-break: break-all;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+    color: #444;
+  }
+
+  @media (max-width: 560px) {
+    .feedControls,
+    .row {
+      grid-template-columns: 1fr;
+    }
+
+    .feedControls button,
+    .buttonRow button {
+      width: 100%;
+    }
+  }
 </style>
 </head>
 
@@ -181,6 +333,20 @@
 <div class="card">
   <h2>News Feeds (one per line)</h2>
   <textarea id="feeds" rows="5"></textarea>
+
+  <div class="suggestedFeedsWrap">
+    <h3>Suggested News Feeds</h3>
+    <div class="small">Pick a feed from the dropdown and add it to your mirror.</div>
+
+    <div class="feedControls">
+      <select id="suggestedFeedSelect">
+        <option value="">Choose a suggested feed...</option>
+      </select>
+      <button type="button" id="addSuggestedFeedBtn" class="secondary">Add feed</button>
+    </div>
+
+    <div id="feedFeedback" class="feedFeedback"></div>
+  </div>
 </div>
 
 <div class="card">
@@ -195,6 +361,136 @@
   <div class="tabPane" data-pane="afternoon"><textarea id="complimentsAfternoon"></textarea></div>
   <div class="tabPane" data-pane="evening"><textarea id="complimentsEvening"></textarea></div>
   <div class="tabPane" data-pane="anytime"><textarea id="complimentsAnytime"></textarea></div>
+</div>
+
+<div class="card">
+  <h2>Traffic Module</h2>
+
+  <label class="checkboxLabel">
+    <input id="trafficEnabled" type="checkbox" />
+    <span>Enable Traffic</span>
+  </label>
+
+  <div class="row">
+    <div>
+      <label>Position</label>
+      <select id="trafficPosition">
+        <option value="top_left">top_left</option>
+        <option value="top_right">top_right</option>
+        <option value="upper_third">upper_third</option>
+        <option value="middle_center">middle_center</option>
+        <option value="lower_third">lower_third</option>
+        <option value="bottom_left">bottom_left</option>
+        <option value="bottom_right">bottom_right</option>
+        <option value="bottom_bar">bottom_bar</option>
+      </select>
+    </div>
+
+    <div>
+      <label>Mode</label>
+      <select id="trafficMode">
+        <option value="driving">driving</option>
+        <option value="walking">walking</option>
+        <option value="cycling">cycling</option>
+      </select>
+    </div>
+  </div>
+
+  <label>Mapbox Access Token</label>
+  <input id="trafficAccessToken" type="password" placeholder="pk.xxxxx..." autocomplete="off" />
+
+  <div class="row">
+    <div>
+      <label>Origin Coords</label>
+      <input id="trafficOriginCoords" placeholder="-0.1276,51.5072" />
+    </div>
+    <div>
+      <label>Destination Coords</label>
+      <input id="trafficDestinationCoords" placeholder="-0.1425,51.5010" />
+    </div>
+  </div>
+
+  <div class="row">
+    <div>
+      <label>Refresh Interval (ms)</label>
+      <input id="trafficInterval" type="number" placeholder="300000" />
+    </div>
+    <div>
+      <label class="checkboxLabel" style="margin-top:34px;">
+        <input id="trafficShowSymbol" type="checkbox" />
+        <span>Show Symbol</span>
+      </label>
+    </div>
+  </div>
+
+  <label>First Line</label>
+  <input id="trafficFirstLine" placeholder="{duration} mins" />
+
+  <label>Second Line</label>
+  <input id="trafficSecondLine" placeholder="Work commute" />
+
+  <div class="small">
+    Use Mapbox format: <b>longitude,latitude</b>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Spotify Module</h2>
+
+  <label class="checkboxLabel">
+    <input id="spotifyEnabled" type="checkbox" />
+    <span>Enable Spotify</span>
+  </label>
+
+  <div class="row">
+    <div>
+      <label>Position</label>
+      <select id="spotifyPosition">
+        <option value="top_left">top_left</option>
+        <option value="top_right">top_right</option>
+        <option value="upper_third">upper_third</option>
+        <option value="middle_center">middle_center</option>
+        <option value="lower_third">lower_third</option>
+        <option value="bottom_left">bottom_left</option>
+        <option value="bottom_right">bottom_right</option>
+        <option value="bottom_bar">bottom_bar</option>
+      </select>
+    </div>
+
+    <div>
+      <label>Display When Idle</label>
+      <select id="spotifyDisplayWhenEmpty">
+        <option value="none">hide module</option>
+        <option value="logo">show placeholder</option>
+      </select>
+    </div>
+  </div>
+
+  <input id="spotifyMirrorId" type="hidden" />
+
+  <div class="statusBox">
+    <div class="statusRow">
+      <div>
+        <div style="font-weight:700;">Spotify Connection</div>
+        <div class="small" id="spotifyStatusText">Checking status...</div>
+      </div>
+      <div>
+        <span class="pill" id="spotifyStatusPill">Unknown</span>
+      </div>
+    </div>
+
+    <div class="small" id="spotifyRedirectHint" style="margin-top:10px;"></div>
+
+    <div class="buttonRow">
+      <button type="button" id="spotifyLoginBtn">Login to Spotify</button>
+      <button type="button" id="spotifyRefreshBtn" class="secondary">Refresh Status</button>
+      <button type="button" id="spotifyDisconnectBtn" class="secondary">Disconnect Spotify</button>
+    </div>
+
+    <div class="small" style="margin-top:10px;">
+      Login opens Spotify in this browser, which is easier on phones than scanning with a second device.
+    </div>
+  </div>
 </div>
 
 <div class="card">
@@ -255,8 +551,10 @@
   let isDirty = false;
   let isSaving = false;
   let deviceInfo = { hostname: "mirror", ip: null };
+  let appMeta = { spotifyAuthBaseUrl: "" };
   let handoverCountdownTimer = null;
   let handoverSecondsRemaining = 30;
+  let feedFeedbackTimer = null;
 
   const COUNTRY_OPTIONS = [
     ["au", "Australia"], ["at", "Austria"], ["be", "Belgium"], ["br", "Brazil"], ["ca", "Canada"],
@@ -265,6 +563,19 @@
     ["jp", "Japan"], ["mx", "Mexico"], ["nl", "Netherlands"], ["nz", "New Zealand"], ["no", "Norway"],
     ["pl", "Poland"], ["pt", "Portugal"], ["sg", "Singapore"], ["za", "South Africa"], ["es", "Spain"],
     ["se", "Sweden"], ["ch", "Switzerland"], ["ae", "United Arab Emirates"], ["gb", "United Kingdom"], ["us", "United States"]
+  ];
+
+  const SUGGESTED_NEWS_FEEDS = [
+    { name: "BBC News", description: "UK and world headlines", url: "http://feeds.bbci.co.uk/news/rss.xml" },
+    { name: "Reuters Top News", description: "Fast global headlines", url: "https://www.reutersagency.com/feed/?best-topics=top-news" },
+    { name: "The Guardian UK", description: "UK news and analysis", url: "https://www.theguardian.com/uk/rss" },
+    { name: "TechCrunch", description: "Startups and tech news", url: "https://techcrunch.com/feed/" },
+    { name: "MIT Technology Review", description: "AI and future tech", url: "https://www.technologyreview.com/feed/" },
+    { name: "The Verge", description: "Consumer tech and gadgets", url: "https://www.theverge.com/rss/index.xml" },
+    { name: "NASA Breaking News", description: "Space and science updates", url: "https://www.nasa.gov/rss/dyn/breaking_news.rss" },
+    { name: "Bloomberg Markets", description: "Business and markets", url: "https://feeds.bloomberg.com/markets/news.rss" },
+    { name: "Wired", description: "Internet, culture, and technology", url: "https://www.wired.com/feed/rss" },
+    { name: "IGN All Games", description: "Gaming news", url: "https://feeds.ign.com/ign/games-all" }
   ];
 
   function markDirty() {
@@ -324,6 +635,123 @@
       .filter(Boolean);
   }
 
+  function getNewsFeedLines() {
+    return linesFromTextarea($("feeds"));
+  }
+
+  function setNewsFeedLines(lines) {
+    $("feeds").value = lines.join("\n");
+    markDirty();
+    updateSuggestedFeedDropdown();
+  }
+
+  function normaliseFeedUrl(url) {
+    return String(url || "").trim().toLowerCase();
+  }
+
+  function hasNewsFeed(url) {
+    const target = normaliseFeedUrl(url);
+    return getNewsFeedLines().some(line => normaliseFeedUrl(line) === target);
+  }
+
+  function flashFeedFeedback(message, type = "ok") {
+    const el = $("feedFeedback");
+    el.textContent = message;
+    el.className = `feedFeedback ${type}`;
+
+    if (feedFeedbackTimer) {
+      clearTimeout(feedFeedbackTimer);
+    }
+
+    feedFeedbackTimer = setTimeout(() => {
+      el.textContent = "";
+      el.className = "feedFeedback";
+    }, 2200);
+  }
+
+  function pulseFeedsTextarea() {
+    const el = $("feeds");
+    el.classList.remove("textareaPulse");
+    void el.offsetWidth;
+    el.classList.add("textareaPulse");
+  }
+
+  function populateSuggestedFeedDropdown() {
+    const select = $("suggestedFeedSelect");
+    select.innerHTML = `<option value="">Choose a suggested feed...</option>`;
+
+    SUGGESTED_NEWS_FEEDS.forEach(feed => {
+      const option = document.createElement("option");
+      option.value = feed.url;
+      option.textContent = `${feed.name} â€¢ ${feed.description}`;
+      option.dataset.name = feed.name;
+      select.appendChild(option);
+    });
+
+    updateSuggestedFeedDropdown();
+  }
+
+  function updateSuggestedFeedDropdown() {
+    const select = $("suggestedFeedSelect");
+    const currentValue = select.value;
+
+    Array.from(select.options).forEach(option => {
+      if (!option.value) return;
+      const added = hasNewsFeed(option.value);
+      option.disabled = added;
+      option.textContent = added
+        ? `${getFeedNameByUrl(option.value)} â€¢ Added`
+        : `${getFeedNameByUrl(option.value)} â€¢ ${getFeedDescriptionByUrl(option.value)}`;
+    });
+
+    if (currentValue && !hasNewsFeed(currentValue)) {
+      select.value = currentValue;
+    } else if (select.value && hasNewsFeed(select.value)) {
+      select.value = "";
+    }
+  }
+
+  function getFeedByUrl(url) {
+    return SUGGESTED_NEWS_FEEDS.find(feed => normaliseFeedUrl(feed.url) === normaliseFeedUrl(url)) || null;
+  }
+
+  function getFeedNameByUrl(url) {
+    const feed = getFeedByUrl(url);
+    return feed ? feed.name : url;
+  }
+
+  function getFeedDescriptionByUrl(url) {
+    const feed = getFeedByUrl(url);
+    return feed ? feed.description : "";
+  }
+
+  function addSelectedSuggestedFeed() {
+    const select = $("suggestedFeedSelect");
+    const url = select.value;
+
+    if (!url) {
+      flashFeedFeedback("Choose a feed from the dropdown first.", "err");
+      return;
+    }
+
+    const feed = getFeedByUrl(url);
+    const current = getNewsFeedLines();
+
+    if (current.some(line => normaliseFeedUrl(line) === normaliseFeedUrl(url))) {
+      flashFeedFeedback(`'${feed?.name || "This feed"}' is already in your news feeds.`, "err");
+      pulseFeedsTextarea();
+      updateSuggestedFeedDropdown();
+      select.value = "";
+      return;
+    }
+
+    current.push(url);
+    setNewsFeedLines(current);
+    pulseFeedsTextarea();
+    flashFeedFeedback(`Added '${feed?.name || "feed"}' to your mirror news feeds.`, "ok");
+    select.value = "";
+  }
+
   function buildPayload() {
     return {
       wifi: {
@@ -342,6 +770,24 @@
         afternoon: linesFromTextarea($("complimentsAfternoon")),
         evening: linesFromTextarea($("complimentsEvening")),
         anytime: linesFromTextarea($("complimentsAnytime"))
+      },
+      traffic: {
+        enabled: $("trafficEnabled").checked,
+        position: $("trafficPosition").value,
+        accessToken: $("trafficAccessToken").value.trim(),
+        originCoords: $("trafficOriginCoords").value.trim(),
+        destinationCoords: $("trafficDestinationCoords").value.trim(),
+        mode: $("trafficMode").value,
+        interval: $("trafficInterval").value ? parseInt($("trafficInterval").value, 10) : 300000,
+        showSymbol: $("trafficShowSymbol").checked,
+        firstLine: $("trafficFirstLine").value.trim(),
+        secondLine: $("trafficSecondLine").value.trim()
+      },
+      spotify: {
+        enabled: $("spotifyEnabled").checked,
+        position: $("spotifyPosition").value,
+        displayWhenEmpty: $("spotifyDisplayWhenEmpty").value,
+        mirrorId: $("spotifyMirrorId").value.trim()
       }
     };
   }
@@ -448,6 +894,16 @@
     `;
   }
 
+  async function loadAppMeta() {
+    try {
+      const res = await fetch("/api/app-meta");
+      const out = await res.json();
+      if (out.ok) {
+        appMeta = out;
+      }
+    } catch {}
+  }
+
   async function loadDeviceInfo() {
     try {
       const res = await fetch("/api/device/info");
@@ -458,6 +914,44 @@
         updateReconnectLinks();
       }
     } catch {}
+  }
+
+  async function refreshSpotifyStatus() {
+    try {
+      const mirrorId = $("spotifyMirrorId").value.trim();
+      const base = (appMeta.spotifyAuthBaseUrl || "").replace(/\/$/, "");
+
+      if (!base || !mirrorId) {
+        $("spotifyStatusPill").textContent = "Not ready";
+        $("spotifyStatusPill").className = "pill err";
+        $("spotifyStatusText").textContent = "Missing auth service URL or mirror ID.";
+        $("spotifyRedirectHint").textContent = "";
+        return;
+      }
+
+      const res = await fetch(`${base}/api/spotify/status?mirrorId=${encodeURIComponent(mirrorId)}`);
+      const out = await res.json();
+
+      if (out.connected) {
+        $("spotifyStatusPill").textContent = "Connected";
+        $("spotifyStatusPill").className = "pill ok";
+        $("spotifyStatusText").textContent = out.connectedAt
+          ? `Authorized successfully on ${new Date(out.connectedAt).toLocaleString()}`
+          : "Authorized successfully.";
+      } else {
+        $("spotifyStatusPill").textContent = "Not connected";
+        $("spotifyStatusPill").className = "pill err";
+        $("spotifyStatusText").textContent = "Spotify login has not been completed yet.";
+      }
+
+      $("spotifyRedirectHint").textContent = base;
+      $("spotifyDisconnectBtn").disabled = !out.connected;
+    } catch (err) {
+      $("spotifyStatusPill").textContent = "Error";
+      $("spotifyStatusPill").className = "pill err";
+      $("spotifyStatusText").textContent = "Could not check Spotify connection status.";
+      $("spotifyRedirectHint").textContent = "";
+    }
   }
 
   async function saveSettings(showSavedMessage = true) {
@@ -490,8 +984,13 @@
         $("password").value = out.settings.wifi.password || "";
       }
 
+      if (out.settings?.spotify?.mirrorId) {
+        $("spotifyMirrorId").value = out.settings.spotify.mirrorId;
+      }
+
       clearDirty();
       highlightSelectedNetwork($("ssid").value.trim());
+      updateSuggestedFeedDropdown();
 
       if (showSavedMessage) {
         $("status").textContent = "Saved!";
@@ -531,15 +1030,34 @@
       $("complimentsEvening").value = (s.compliments?.evening || []).join("\n");
       $("complimentsAnytime").value = (s.compliments?.anytime || []).join("\n");
 
+      $("trafficEnabled").checked = !!s.traffic?.enabled;
+      $("trafficPosition").value = s.traffic?.position || "top_right";
+      $("trafficAccessToken").value = s.traffic?.accessToken || "";
+      $("trafficOriginCoords").value = s.traffic?.originCoords || "";
+      $("trafficDestinationCoords").value = s.traffic?.destinationCoords || "";
+      $("trafficMode").value = s.traffic?.mode || "driving";
+      $("trafficInterval").value = s.traffic?.interval ?? 300000;
+      $("trafficShowSymbol").checked = s.traffic?.showSymbol ?? true;
+      $("trafficFirstLine").value = s.traffic?.firstLine || "{duration} mins";
+      $("trafficSecondLine").value = s.traffic?.secondLine || "";
+
+      $("spotifyEnabled").checked = !!s.spotify?.enabled;
+      $("spotifyPosition").value = s.spotify?.position || "middle_center";
+      $("spotifyDisplayWhenEmpty").value = s.spotify?.displayWhenEmpty || "none";
+      $("spotifyMirrorId").value = s.spotify?.mirrorId || "";
+
       populateCountries();
       $("countryCode").value = s.holidayCountryCode || "gb";
 
       clearDirty();
       highlightSelectedNetwork($("ssid").value.trim());
+      updateSuggestedFeedDropdown();
 
       if (!isHotspot) {
         $("scanStatus").textContent = "Mirror is already on WiFi.";
       }
+
+      await refreshSpotifyStatus();
     } catch (err) {
       $("status").textContent = `Failed to load settings: ${err.message}`;
       $("status").className = "small err";
@@ -549,13 +1067,21 @@
   [
     "ssid", "password", "lat", "lon", "countryCode",
     "calendarFeeds", "feeds",
-    "complimentsMorning", "complimentsAfternoon", "complimentsEvening", "complimentsAnytime"
+    "complimentsMorning", "complimentsAfternoon", "complimentsEvening", "complimentsAnytime",
+    "trafficEnabled", "trafficPosition", "trafficAccessToken", "trafficOriginCoords",
+    "trafficDestinationCoords", "trafficMode", "trafficInterval", "trafficShowSymbol",
+    "trafficFirstLine", "trafficSecondLine",
+    "spotifyEnabled", "spotifyPosition", "spotifyDisplayWhenEmpty"
   ].forEach(id => {
     $(id).addEventListener("input", () => {
       markDirty();
       if (id === "ssid") highlightSelectedNetwork($("ssid").value.trim());
+      if (id === "feeds") updateSuggestedFeedDropdown();
     });
-    $(id).addEventListener("change", markDirty);
+    $(id).addEventListener("change", () => {
+      markDirty();
+      if (id === "feeds") updateSuggestedFeedDropdown();
+    });
   });
 
   $("countrySearch").oninput = (e) => populateCountries(e.target.value);
@@ -632,8 +1158,62 @@
     }
   };
 
+  $("addSuggestedFeedBtn").onclick = addSelectedSuggestedFeed;
+  $("suggestedFeedSelect").addEventListener("change", () => {
+    $("feedFeedback").textContent = "";
+    $("feedFeedback").className = "feedFeedback";
+  });
+
+  $("spotifyLoginBtn").onclick = async () => {
+    try {
+      await saveSettings(false);
+
+      const mirrorId = $("spotifyMirrorId").value.trim();
+      const base = (appMeta.spotifyAuthBaseUrl || "").replace(/\/$/, "");
+
+      if (!base || !mirrorId) {
+        throw new Error("Missing auth service URL or mirror ID.");
+      }
+
+      const loginRes = await fetch(`${base}/api/spotify/login-url?mirrorId=${encodeURIComponent(mirrorId)}`);
+      const loginOut = await loginRes.json();
+
+      if (!loginRes.ok || !loginOut.ok) {
+        throw new Error(loginOut.error || "Could not generate Spotify login URL.");
+      }
+
+      window.location.href = loginOut.url;
+    } catch (err) {
+      $("status").textContent = `Spotify login failed: ${err.message}`;
+      $("status").className = "small err";
+    }
+  };
+
+  $("spotifyRefreshBtn").onclick = async () => {
+    await refreshSpotifyStatus();
+  };
+
+  $("spotifyDisconnectBtn").onclick = async () => {
+    try {
+      const mirrorId = $("spotifyMirrorId").value.trim();
+      const base = (appMeta.spotifyAuthBaseUrl || "").replace(/\/$/, "");
+      const res = await fetch(`${base}/api/spotify/disconnect?mirrorId=${encodeURIComponent(mirrorId)}`, {
+        method: "POST"
+      });
+      const out = await res.json();
+      if (!res.ok || !out.ok) throw new Error(out.error || "Disconnect failed");
+      await refreshSpotifyStatus();
+      $("status").textContent = "Spotify disconnected.";
+      $("status").className = "small ok";
+    } catch (err) {
+      $("status").textContent = `Spotify disconnect failed: ${err.message}`;
+      $("status").className = "small err";
+    }
+  };
+
   $("saveBtn").onclick = async () => {
     await saveSettings(true);
+    await refreshSpotifyStatus();
   };
 
   $("applyBtn").onclick = async () => {
@@ -714,8 +1294,11 @@
   });
 
   populateCountries();
-  loadDeviceInfo();
-  load();
+  populateSuggestedFeedDropdown();
+  loadAppMeta().then(async () => {
+    await loadDeviceInfo();
+    await load();
+  });
 </script>
 </body>
 </html>
