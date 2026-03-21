@@ -11,7 +11,12 @@ const PORT = 3001;
 const SETUP_FLAG = "/boot/mm-setup";
 const DATA_DIR = path.join(__dirname, "data");
 const SETTINGS_PATH = path.join(DATA_DIR, "settings.json");
-const SPOTIFY_AUTH_BASE_URL = process.env.SPOTIFY_AUTH_BASE_URL || "";
+
+
+const SPOTIFY_AUTH_BASE_URL =
+  process.env.SPOTIFY_AUTH_BASE_URL ||
+  "https://spotify-mirror-auth.mirrorsspotify.workers.dev";
+
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));

@@ -326,14 +326,47 @@
 </div>
 
 <div class="card">
-  <h2>Additional Calendars (one per line)</h2>
-  <textarea id="calendarFeeds" rows="4"></textarea>
+  <h2>Additional Calendars</h2>
+
+  <div class="small">
+    Add extra calendars to your mirror (like work, school, or family events).
+    <br><br>
+    Youâ€ll need a calendar <b>link (ICS URL)</b> â€ this is a special link that lets your mirror read events.
+    <br><br>
+    <b>Where to get one:</b>
+    <ul style="margin:6px 0 0 18px; padding:0;">
+      <li><b>Google Calendar:</b> Settings â your calendar â â€Integrate calendarâ€ â copy <i>Secret address in iCal format</i></li>
+      <li><b>Outlook / Office 365:</b> Settings â Shared calendars â â€Publish a calendarâ€ â copy ICS link</li>
+      <li><b>Apple iCloud:</b> Share calendar â enable â€Public Calendarâ€ â copy link</li>
+    </ul>
+    <br>
+    Paste one link per line below ð
+  </div>
+
+  <textarea id="calendarFeeds" rows="4" placeholder="https://example.com/calendar.ics"></textarea>
 </div>
 
 <div class="card">
-  <h2>News Feeds (one per line)</h2>
-  <textarea id="feeds" rows="5"></textarea>
+  <h2>News Feeds</h2>
 
+  <div class="small">
+    Your mirror shows news using <b>RSS feeds</b> â€ these are live links from news websites.
+    <br><br>
+    Think of them like a â€live news pipeâ€ your mirror listens to ð¡
+    <br><br>
+    <b>Easy option:</b> Use the suggested feeds below (recommended)
+    <br>
+    <b>Advanced:</b> Paste your own RSS links (one per line)
+    <br><br>
+    Most news sites have RSS feeds â€ look for links ending in:
+    <br>
+    <code>.rss</code> or <code>/feed</code>
+  </div>
+
+  <textarea id="feeds" rows="5" placeholder="https://feeds.bbci.co.uk/news/rss.xml"></textarea>
+<div class="small">
+  Not sure what to add? Use the suggested feeds below â€ theyâ€re already set up ð
+</div>
   <div class="suggestedFeedsWrap">
     <h3>Suggested News Feeds</h3>
     <div class="small">Pick a feed from the dropdown and add it to your mirror.</div>
@@ -683,7 +716,7 @@
     SUGGESTED_NEWS_FEEDS.forEach(feed => {
       const option = document.createElement("option");
       option.value = feed.url;
-      option.textContent = `${feed.name} â€¢ ${feed.description}`;
+      option.textContent = `${feed.name} Ã¢â¬Â¢ ${feed.description}`;
       option.dataset.name = feed.name;
       select.appendChild(option);
     });
@@ -700,8 +733,8 @@
       const added = hasNewsFeed(option.value);
       option.disabled = added;
       option.textContent = added
-        ? `${getFeedNameByUrl(option.value)} â€¢ Added`
-        : `${getFeedNameByUrl(option.value)} â€¢ ${getFeedDescriptionByUrl(option.value)}`;
+        ? `${getFeedNameByUrl(option.value)} Ã¢â¬Â¢ Added`
+        : `${getFeedNameByUrl(option.value)} Ã¢â¬Â¢ ${getFeedDescriptionByUrl(option.value)}`;
     });
 
     if (currentValue && !hasNewsFeed(currentValue)) {
@@ -1302,3 +1335,4 @@
 </script>
 </body>
 </html>
+
