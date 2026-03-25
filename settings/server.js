@@ -4,6 +4,7 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 const crypto = require("crypto");
+const https = require("https");
 
 const app = express();
 
@@ -12,14 +13,24 @@ const SETUP_FLAG = "/boot/mm-setup";
 const DATA_DIR = path.join(__dirname, "data");
 const SETTINGS_PATH = path.join(DATA_DIR, "settings.json");
 
-
 const SPOTIFY_AUTH_BASE_URL =
   process.env.SPOTIFY_AUTH_BASE_URL ||
   "https://spotify-mirror-auth.mirrorsspotify.workers.dev";
 
+const GOOGLE_MAPS_API_KEY = (process.env.GOOGLE_MAPS_API_KEY || "").trim();
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
+
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+  next();
+});
 
 app.get("/settings", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
@@ -70,6 +81,9 @@ const HOLIDAY_CALENDAR_URLS = {
   us: "https://www.officeholidays.com/ics-clean/united-states"
 };
 
+const geocodeCache = new Map();
+const autocompleteCache = new Map();
+
 function setApply(step, message, err = null) {
   applyState.running = step !== "idle" && step !== "done" && step !== "error";
   applyState.step = step;
@@ -96,14 +110,13 @@ function defaultSettings() {
     traffic: {
       enabled: false,
       position: "top_right",
-      accessToken: "",
-      originCoords: "",
-      destinationCoords: "",
-      mode: "driving",
       interval: 300000,
+      rotateInterval: 10000,
+      displayMode: "rotate",
       showSymbol: true,
       firstLine: "{duration} mins",
-      secondLine: ""
+      secondLine: "{trafficText} â€¢ +{delay} mins â€¢ via {route}",
+      routes: []
     },
     spotify: {
       enabled: false,
@@ -119,6 +132,40 @@ function ensureDataFiles() {
   if (!fs.existsSync(SETTINGS_PATH)) {
     fs.writeFileSync(SETTINGS_PATH, JSON.stringify(defaultSettings(), null, 2), "utf8");
   }
+}
+
+function sanitizeTrafficRoutes(routes, legacyTraffic = null) {
+  let safeRoutes = Array.isArray(routes)
+    ? routes
+        .map((r) => ({
+          id: String(r?.id || crypto.randomUUID()),
+          name: String(r?.name || "").trim(),
+          originAddress: String(r?.originAddress || "").trim(),
+          destinationAddress: String(r?.destinationAddress || "").trim(),
+          mode: ["driving", "walking", "cycling"].includes(r?.mode) ? r.mode : "driving"
+        }))
+        .filter((r) => r.name || r.originAddress || r.destinationAddress)
+    : [];
+
+  if (!safeRoutes.length && legacyTraffic) {
+    const originAddress = String(legacyTraffic.originAddress || "").trim();
+    const destinationAddress = String(legacyTraffic.destinationAddress || "").trim();
+    const mode = ["driving", "walking", "cycling"].includes(legacyTraffic.mode)
+      ? legacyTraffic.mode
+      : "driving";
+
+    if (originAddress || destinationAddress) {
+      safeRoutes = [{
+        id: crypto.randomUUID(),
+        name: "Route 1",
+        originAddress,
+        destinationAddress,
+        mode
+      }];
+    }
+  }
+
+  return safeRoutes;
 }
 
 function sanitizeSettings(input) {
@@ -161,14 +208,17 @@ function sanitizeSettings(input) {
 
   safe.traffic.enabled = !!safe.traffic.enabled;
   safe.traffic.position = String(safe.traffic.position || "top_right");
-  safe.traffic.accessToken = String(safe.traffic.accessToken || "").trim();
-  safe.traffic.originCoords = String(safe.traffic.originCoords || "").trim();
-  safe.traffic.destinationCoords = String(safe.traffic.destinationCoords || "").trim();
-  safe.traffic.mode = ["driving", "walking", "cycling"].includes(safe.traffic.mode) ? safe.traffic.mode : "driving";
   safe.traffic.interval = Number.isFinite(Number(safe.traffic.interval)) ? Number(safe.traffic.interval) : 300000;
+  safe.traffic.rotateInterval = Number.isFinite(Number(safe.traffic.rotateInterval)) ? Number(safe.traffic.rotateInterval) : 10000;
+  safe.traffic.displayMode = ["rotate", "list"].includes(safe.traffic.displayMode) ? safe.traffic.displayMode : "rotate";
   safe.traffic.showSymbol = !!safe.traffic.showSymbol;
   safe.traffic.firstLine = String(safe.traffic.firstLine || "{duration} mins").trim();
-  safe.traffic.secondLine = String(safe.traffic.secondLine || "").trim();
+  safe.traffic.secondLine = String(safe.traffic.secondLine || "{trafficText} â€¢ +{delay} mins â€¢ via {route}").trim();
+  safe.traffic.routes = sanitizeTrafficRoutes(safe.traffic.routes, safe.traffic);
+
+  delete safe.traffic.originAddress;
+  delete safe.traffic.destinationAddress;
+  delete safe.traffic.mode;
 
   safe.spotify.enabled = !!safe.spotify.enabled;
   safe.spotify.position = String(safe.spotify.position || "middle_center");
@@ -229,6 +279,272 @@ function getFeedTitle(url) {
   }
 }
 
+function httpsJsonRequest(urlString, { method = "GET", headers = {}, body = null } = {}) {
+  return new Promise((resolve, reject) => {
+    const url = new URL(urlString);
+
+    const options = {
+      method,
+      hostname: url.hostname,
+      path: `${url.pathname}${url.search}`,
+      headers
+    };
+
+    const req = https.request(options, (res) => {
+      let data = "";
+
+      res.on("data", chunk => {
+        data += chunk;
+      });
+
+      res.on("end", () => {
+        let parsed = null;
+
+        try {
+          parsed = data ? JSON.parse(data) : {};
+        } catch (err) {
+          return reject(new Error(`Invalid JSON response from upstream service (${res.statusCode})`));
+        }
+
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          const message =
+            parsed?.error?.message ||
+            parsed?.status ||
+            res.statusMessage ||
+            `HTTP ${res.statusCode}`;
+          return reject(new Error(message));
+        }
+
+        resolve(parsed);
+      });
+    });
+
+    req.on("error", reject);
+
+    if (body) {
+      req.write(typeof body === "string" ? body : JSON.stringify(body));
+    }
+
+    req.end();
+  });
+}
+
+function parseGoogleDurationToMinutes(value) {
+  if (!value || typeof value !== "string") return null;
+  const seconds = Number(value.replace("s", ""));
+  if (!Number.isFinite(seconds)) return null;
+  return Math.max(0, Math.round(seconds / 60));
+}
+
+function getTrafficText(delayMinutes, mode) {
+  if (mode !== "driving") {
+    return "Route time";
+  }
+
+  if (!Number.isFinite(delayMinutes) || delayMinutes <= 2) {
+    return "Clear traffic";
+  }
+
+  if (delayMinutes <= 10) {
+    return "Moderate traffic";
+  }
+
+  return "Heavy traffic";
+}
+
+function googleTravelMode(mode) {
+  if (mode === "walking") return "WALK";
+  if (mode === "cycling") return "BICYCLE";
+  return "DRIVE";
+}
+
+function ensureGoogleApiKey() {
+  if (!GOOGLE_MAPS_API_KEY) {
+    throw new Error("GOOGLE_MAPS_API_KEY is not set on the server");
+  }
+}
+
+function metersToMiles(meters) {
+  if (!Number.isFinite(meters)) return null;
+  return Number((meters / 1609.344).toFixed(1));
+}
+
+function metersToKm(meters) {
+  if (!Number.isFinite(meters)) return null;
+  return Number((meters / 1000).toFixed(1));
+}
+
+async function geocodeAddress(address) {
+  const trimmed = String(address || "").trim();
+  if (!trimmed) {
+    throw new Error("Address is empty");
+  }
+
+  const cacheKey = trimmed.toLowerCase();
+  if (geocodeCache.has(cacheKey)) {
+    return geocodeCache.get(cacheKey);
+  }
+
+  ensureGoogleApiKey();
+
+  const url = new URL("https://maps.googleapis.com/maps/api/geocode/json");
+  url.searchParams.set("address", trimmed);
+  url.searchParams.set("key", GOOGLE_MAPS_API_KEY);
+
+  const json = await httpsJsonRequest(url.toString());
+
+  if (json.status !== "OK" || !Array.isArray(json.results) || !json.results.length) {
+    throw new Error(`Could not geocode address: ${trimmed}`);
+  }
+
+  const first = json.results[0];
+  const result = {
+    lat: first.geometry?.location?.lat,
+    lng: first.geometry?.location?.lng,
+    formattedAddress: first.formatted_address || trimmed
+  };
+
+  if (!Number.isFinite(result.lat) || !Number.isFinite(result.lng)) {
+    throw new Error(`Invalid geocode result for: ${trimmed}`);
+  }
+
+  geocodeCache.set(cacheKey, result);
+  return result;
+}
+
+async function autocompleteAddress(input) {
+  const trimmed = String(input || "").trim();
+  if (!trimmed) return [];
+
+  const cacheKey = trimmed.toLowerCase();
+  if (autocompleteCache.has(cacheKey)) {
+    return autocompleteCache.get(cacheKey);
+  }
+
+  ensureGoogleApiKey();
+
+  const json = await httpsJsonRequest(
+    "https://places.googleapis.com/v1/places:autocomplete",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": GOOGLE_MAPS_API_KEY,
+        "X-Goog-FieldMask": "suggestions.placePrediction.place,suggestions.placePrediction.placeId,suggestions.placePrediction.text"
+      },
+      body: {
+        input: trimmed,
+        includedPrimaryTypes: ["street_address", "postal_code", "route", "premise", "locality"],
+        languageCode: "en-GB",
+        regionCode: "GB"
+      }
+    }
+  );
+
+  const suggestions = Array.isArray(json.suggestions)
+    ? json.suggestions
+        .map((s) => s.placePrediction)
+        .filter(Boolean)
+        .map((p) => ({
+          place: p.place || "",
+          placeId: p.placeId || "",
+          text: p.text?.text || ""
+        }))
+        .filter((p) => p.text)
+        .slice(0, 6)
+    : [];
+
+  autocompleteCache.set(cacheKey, suggestions);
+  return suggestions;
+}
+
+async function getRouteTraffic(routeConfig) {
+  ensureGoogleApiKey();
+
+  const name = String(routeConfig?.name || "").trim() || "Route";
+  const mode = ["driving", "walking", "cycling"].includes(routeConfig?.mode)
+    ? routeConfig.mode
+    : "driving";
+
+  const [origin, destination] = await Promise.all([
+    geocodeAddress(routeConfig.originAddress),
+    geocodeAddress(routeConfig.destinationAddress)
+  ]);
+
+  const body = {
+    origin: {
+      location: {
+        latLng: {
+          latitude: origin.lat,
+          longitude: origin.lng
+        }
+      }
+    },
+    destination: {
+      location: {
+        latLng: {
+          latitude: destination.lat,
+          longitude: destination.lng
+        }
+      }
+    },
+    travelMode: googleTravelMode(mode),
+    languageCode: "en-GB",
+    units: "METRIC"
+  };
+
+  if (mode === "driving") {
+    body.routingPreference = "TRAFFIC_AWARE";
+  }
+
+  const json = await httpsJsonRequest(
+    "https://routes.googleapis.com/directions/v2:computeRoutes",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": GOOGLE_MAPS_API_KEY,
+        "X-Goog-FieldMask": "routes.duration,routes.staticDuration,routes.description,routes.distanceMeters"
+      },
+      body
+    }
+  );
+
+  const route = json?.routes?.[0];
+  if (!route) {
+    throw new Error(`No route returned for ${name}`);
+  }
+
+  const duration = parseGoogleDurationToMinutes(route.duration);
+  const normalDuration = parseGoogleDurationToMinutes(route.staticDuration);
+  const distanceMeters = Number(route.distanceMeters);
+
+  if (!Number.isFinite(duration)) {
+    throw new Error(`Route response did not contain a usable duration for ${name}`);
+  }
+
+  const delay =
+    Number.isFinite(normalDuration) && mode === "driving"
+      ? Math.max(0, duration - normalDuration)
+      : 0;
+
+  return {
+    id: routeConfig.id || crypto.randomUUID(),
+    name,
+    duration,
+    normalDuration: Number.isFinite(normalDuration) ? normalDuration : duration,
+    delay,
+    route: route.description || "",
+    trafficText: getTrafficText(delay, mode),
+    originAddress: origin.formattedAddress,
+    destinationAddress: destination.formattedAddress,
+    distanceMeters: Number.isFinite(distanceMeters) ? distanceMeters : null,
+    distanceMiles: metersToMiles(distanceMeters),
+    distanceKm: metersToKm(distanceMeters),
+    mode
+  };
+}
+
 function buildConfigJs(settings) {
   const lat = normalizeCoordinate(settings.location?.lat);
   const lon = normalizeCoordinate(settings.location?.lon);
@@ -255,30 +571,27 @@ function buildConfigJs(settings) {
       config: { weatherProvider: "openmeteo", type: "forecast", lat: ${lat}, lon: ${lon} }
     }` : "";
 
-  const trafficModule =
+  const trafficHasRoutes =
     settings.traffic?.enabled &&
-    settings.traffic.accessToken &&
-    settings.traffic.originCoords &&
-    settings.traffic.destinationCoords
-      ? `,
+    Array.isArray(settings.traffic.routes) &&
+    settings.traffic.routes.some(r => r.originAddress && r.destinationAddress);
+
+  const trafficModule = trafficHasRoutes
+    ? `,
     {
       module: "MMM-Traffic",
       position: ${jsString(settings.traffic.position || "top_right")},
       config: {
-        accessToken: ${jsString(settings.traffic.accessToken)},
-        originCoords: ${jsString(settings.traffic.originCoords)},
-        destinationCoords: ${jsString(settings.traffic.destinationCoords)},
-        mode: ${jsString(settings.traffic.mode || "driving")},
+        setupServerUrl: "http://127.0.0.1:3001",
         interval: ${Number(settings.traffic.interval || 300000)},
+        rotateInterval: ${Number(settings.traffic.rotateInterval || 10000)},
+        displayMode: ${jsString(settings.traffic.displayMode || "rotate")},
         showSymbol: ${settings.traffic.showSymbol ? "true" : "false"},
-        firstLine: ${jsString(settings.traffic.firstLine || "{duration} mins")}${
-          settings.traffic.secondLine
-            ? `,\n        secondLine: ${jsString(settings.traffic.secondLine)}`
-            : ""
-        }
+        firstLine: ${jsString(settings.traffic.firstLine || "{duration} mins")},
+        secondLine: ${jsString(settings.traffic.secondLine || "{trafficText} â€¢ +{delay} mins â€¢ via {route}")}
       }
     }`
-      : "";
+    : "";
 
   const spotifyModule =
     settings.spotify?.enabled &&
@@ -375,6 +688,72 @@ app.post("/api/settings", (req, res) => {
     res.json({ ok: true, settings: saved });
   } catch (err) {
     console.error("Failed to save settings:", err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.get("/api/traffic/autocomplete", async (req, res) => {
+  try {
+    const q = String(req.query.q || "").trim();
+    if (!q || q.length < 2) {
+      return res.json({ ok: true, suggestions: [] });
+    }
+
+    const suggestions = await autocompleteAddress(q);
+    res.json({ ok: true, suggestions });
+  } catch (err) {
+    console.error("Traffic autocomplete error:", err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.get("/api/traffic/current", async (req, res) => {
+  try {
+    const settings = readSettings();
+    const traffic = settings.traffic || {};
+    const routes = Array.isArray(traffic.routes) ? traffic.routes : [];
+
+    if (!traffic.enabled) {
+      return res.status(400).json({ ok: false, error: "Traffic module is disabled." });
+    }
+
+    const validRoutes = routes.filter((r) => r.originAddress && r.destinationAddress);
+    if (!validRoutes.length) {
+      return res.status(400).json({ ok: false, error: "At least one route must be configured." });
+    }
+
+    const results = await Promise.all(
+      validRoutes.map(async (routeConfig) => {
+        try {
+          return await getRouteTraffic(routeConfig);
+        } catch (err) {
+          return {
+            id: routeConfig.id || crypto.randomUUID(),
+            name: routeConfig.name || "Route",
+            mode: routeConfig.mode || "driving",
+            error: err.message,
+            duration: null,
+            normalDuration: null,
+            delay: null,
+            route: "",
+            trafficText: "Unavailable",
+            originAddress: routeConfig.originAddress || "",
+            destinationAddress: routeConfig.destinationAddress || "",
+            distanceMeters: null,
+            distanceMiles: null,
+            distanceKm: null
+          };
+        }
+      })
+    );
+
+    res.json({
+      ok: true,
+      routes: results,
+      generatedAt: new Date().toISOString()
+    });
+  } catch (err) {
+    console.error("Traffic API error:", err);
     res.status(500).json({ ok: false, error: err.message });
   }
 });
