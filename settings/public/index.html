@@ -245,16 +245,25 @@
   }
 
   .trafficRouteHeader {
-    display: flex;
-    justify-content: space-between;
-    gap: 10px;
-    align-items: center;
+    display: block;
     margin-bottom: 8px;
   }
 
   .trafficRouteTitle {
     font-weight: 800;
     font-size: 15px;
+  }
+
+  .trafficRouteFooter {
+    margin-top: 16px;
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .remove-route-btn {
+    width: 140px;
+    min-width: 140px;
+    max-width: 140px;
   }
 
   .trafficAutocompleteWrap {
@@ -321,21 +330,54 @@
     width: auto;
   }
 
+  .modulePositionGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .postcodeControls {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+    align-items: end;
+    margin-top: 4px;
+  }
+
+  .postcodeControls button {
+    width: auto;
+    min-width: 160px;
+    margin-top: 0;
+  }
+
+  .locationLookupStatus {
+    min-height: 18px;
+    margin-top: 10px;
+  }
+
   @media (max-width: 560px) {
     .feedControls,
-    .row {
+    .row,
+    .modulePositionGrid,
+    .postcodeControls {
       grid-template-columns: 1fr;
     }
 
     .feedControls button,
     .buttonRow button,
-    .routeActionRow button {
+    .routeActionRow button,
+    .postcodeControls button {
       width: 100%;
     }
 
-    .trafficRouteHeader {
-      flex-direction: column;
-      align-items: stretch;
+    .trafficRouteFooter {
+      justify-content: stretch;
+    }
+
+    .remove-route-btn {
+      width: 100%;
+      min-width: 0;
+      max-width: none;
     }
   }
 </style>
@@ -368,11 +410,109 @@
 </div>
 
 <div class="card">
-  <h2>Location (for Weather)</h2>
+  <h2>Module Positions</h2>
+  <div class="modulePositionGrid">
+    <div>
+      <label>Clock Position</label>
+      <select id="clockPosition">
+        <option value="top_left">top_left</option>
+        <option value="top_right">top_right</option>
+        <option value="upper_third">upper_third</option>
+        <option value="middle_center">middle_center</option>
+        <option value="lower_third">lower_third</option>
+        <option value="bottom_left">bottom_left</option>
+        <option value="bottom_right">bottom_right</option>
+        <option value="bottom_bar">bottom_bar</option>
+      </select>
+    </div>
+
+    <div>
+      <label>Calendar Position</label>
+      <select id="calendarPosition">
+        <option value="top_left">top_left</option>
+        <option value="top_right">top_right</option>
+        <option value="upper_third">upper_third</option>
+        <option value="middle_center">middle_center</option>
+        <option value="lower_third">lower_third</option>
+        <option value="bottom_left">bottom_left</option>
+        <option value="bottom_right">bottom_right</option>
+        <option value="bottom_bar">bottom_bar</option>
+      </select>
+    </div>
+
+    <div>
+      <label>Weather Current Position</label>
+      <select id="weatherCurrentPosition">
+        <option value="top_left">top_left</option>
+        <option value="top_right">top_right</option>
+        <option value="upper_third">upper_third</option>
+        <option value="middle_center">middle_center</option>
+        <option value="lower_third">lower_third</option>
+        <option value="bottom_left">bottom_left</option>
+        <option value="bottom_right">bottom_right</option>
+        <option value="bottom_bar">bottom_bar</option>
+      </select>
+    </div>
+
+    <div>
+      <label>Weather Forecast Position</label>
+      <select id="weatherForecastPosition">
+        <option value="top_left">top_left</option>
+        <option value="top_right">top_right</option>
+        <option value="upper_third">upper_third</option>
+        <option value="middle_center">middle_center</option>
+        <option value="lower_third">lower_third</option>
+        <option value="bottom_left">bottom_left</option>
+        <option value="bottom_right">bottom_right</option>
+        <option value="bottom_bar">bottom_bar</option>
+      </select>
+    </div>
+
+    <div>
+      <label>Compliments Position</label>
+      <select id="complimentsPosition">
+        <option value="top_left">top_left</option>
+        <option value="top_right">top_right</option>
+        <option value="upper_third">upper_third</option>
+        <option value="middle_center">middle_center</option>
+        <option value="lower_third">lower_third</option>
+        <option value="bottom_left">bottom_left</option>
+        <option value="bottom_right">bottom_right</option>
+        <option value="bottom_bar">bottom_bar</option>
+      </select>
+    </div>
+
+    <div>
+      <label>News Feed Position</label>
+      <select id="newsfeedPosition">
+        <option value="top_left">top_left</option>
+        <option value="top_right">top_right</option>
+        <option value="upper_third">upper_third</option>
+        <option value="middle_center">middle_center</option>
+        <option value="lower_third">lower_third</option>
+        <option value="bottom_left">bottom_left</option>
+        <option value="bottom_right">bottom_right</option>
+        <option value="bottom_bar">bottom_bar</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Location (for Weather + TfL)</h2>
+
+  <label>Postcode lookup</label>
+  <div class="postcodeControls">
+    <input id="postcode" placeholder="e.g. E3 5FZ" autocomplete="off" />
+    <button id="lookupPostcodeBtn" type="button" class="secondary">Lookup Postcode</button>
+  </div>
+  <div id="postcodeLookupStatus" class="small locationLookupStatus"></div>
+
   <div class="row">
     <div><label>Latitude</label><input id="lat" placeholder="e.g. 51.5" /></div>
     <div><label>Longitude</label><input id="lon" placeholder="e.g. -0.1" /></div>
   </div>
+
   <button id="autoLocateBtn" class="secondary" style="margin-top:10px;" disabled>Auto-Locate Now</button>
   <div id="autoLocateStatus" class="small" style="color: #c33;">Only available through WiFi connection</div>
 </div>
@@ -470,12 +610,12 @@
 
   <div class="row">
     <div>
-      <label>Refresh Interval (ms)</label>
-      <input id="trafficInterval" type="number" placeholder="300000" />
+      <label>Refresh Interval (seconds)</label>
+      <input id="trafficInterval" type="number" min="1" step="1" placeholder="300" />
     </div>
     <div>
-      <label>Rotate Interval (ms)</label>
-      <input id="trafficRotateInterval" type="number" placeholder="10000" />
+      <label>Rotate Interval (seconds)</label>
+      <input id="trafficRotateInterval" type="number" min="1" step="1" placeholder="10" />
     </div>
   </div>
 
@@ -484,16 +624,6 @@
     <span>Show Symbol</span>
   </label>
 
-  <label>First Line</label>
-  <input id="trafficFirstLine" placeholder="{name}: {duration} mins" />
-
-  <label>Second Line</label>
-  <input id="trafficSecondLine" placeholder="{trafficText} Ã¢â¬Â¢ +{delay} mins Ã¢â¬Â¢ via {route}" />
-
-  <div class="small">
-    Tokens: <b>{name}</b>, <b>{duration}</b>, <b>{normalDuration}</b>, <b>{delay}</b>, <b>{trafficText}</b>, <b>{route}</b>, <b>{distanceMiles}</b>, <b>{distanceKm}</b>
-  </div>
-
   <div id="trafficRoutesContainer"></div>
 
   <div class="routeActionRow">
@@ -501,6 +631,62 @@
   </div>
 
   <div id="trafficLookupStatus" class="small trafficLookupStatus"></div>
+</div>
+
+<div class="card">
+  <h2>TfL Nearby Transport Module</h2>
+
+  <label class="checkboxLabel">
+    <input id="tflEnabled" type="checkbox" />
+    <span>Enable TfL Nearby Transport</span>
+  </label>
+
+  <div class="row">
+    <div>
+      <label>Position</label>
+      <select id="tflPosition">
+        <option value="top_left">top_left</option>
+        <option value="top_right">top_right</option>
+        <option value="upper_third">upper_third</option>
+        <option value="middle_center">middle_center</option>
+        <option value="lower_third">lower_third</option>
+        <option value="bottom_left">bottom_left</option>
+        <option value="bottom_right">bottom_right</option>
+        <option value="bottom_bar">bottom_bar</option>
+      </select>
+    </div>
+
+    <div>
+      <label>Refresh Interval (seconds)</label>
+      <input id="tflRefreshInterval" type="number" min="1" step="1" placeholder="30" />
+    </div>
+  </div>
+
+  <div class="row">
+    <div>
+      <label>Max Bus Stops</label>
+      <input id="tflMaxBusStops" type="number" placeholder="2" />
+    </div>
+    <div>
+      <label>Max Stations</label>
+      <input id="tflMaxStations" type="number" placeholder="2" />
+    </div>
+  </div>
+
+  <div class="row">
+    <div>
+      <label>Max Arrivals Per Stop</label>
+      <input id="tflMaxArrivals" type="number" placeholder="3" />
+    </div>
+    <div>
+      <label>Search Radius (metres)</label>
+      <input id="tflRadius" type="number" placeholder="1200" />
+    </div>
+  </div>
+
+  <div class="small">
+    Uses the same Latitude and Longitude as the Weather module.
+  </div>
 </div>
 
 <div class="card">
@@ -751,7 +937,7 @@
     SUGGESTED_NEWS_FEEDS.forEach(feed => {
       const option = document.createElement("option");
       option.value = feed.url;
-      option.textContent = `${feed.name} Ã¢â¬Â¢ ${feed.description}`;
+      option.textContent = `${feed.name} â€¢ ${feed.description}`;
       option.dataset.name = feed.name;
       select.appendChild(option);
     });
@@ -768,8 +954,8 @@
       const added = hasNewsFeed(option.value);
       option.disabled = added;
       option.textContent = added
-        ? `${getFeedNameByUrl(option.value)} Ã¢â¬Â¢ Added`
-        : `${getFeedNameByUrl(option.value)} Ã¢â¬Â¢ ${getFeedDescriptionByUrl(option.value)}`;
+        ? `${getFeedNameByUrl(option.value)} â€¢ Added`
+        : `${getFeedNameByUrl(option.value)} â€¢ ${getFeedDescriptionByUrl(option.value)}`;
     });
 
     if (currentValue && !hasNewsFeed(currentValue)) {
@@ -834,6 +1020,22 @@
     };
   }
 
+  function secondsToMs(value, fallbackSeconds) {
+    const n = Number(value);
+    if (!Number.isFinite(n) || n <= 0) {
+      return fallbackSeconds * 1000;
+    }
+    return Math.round(n * 1000);
+  }
+
+  function msToSeconds(value, fallbackSeconds) {
+    const n = Number(value);
+    if (!Number.isFinite(n) || n <= 0) {
+      return fallbackSeconds;
+    }
+    return Math.round(n / 1000);
+  }
+
   function buildPayload() {
     return {
       wifi: {
@@ -841,8 +1043,17 @@
         password: $("password").value
       },
       location: {
+        postcode: $("postcode").value.trim(),
         lat: $("lat").value ? parseFloat($("lat").value) : null,
         lon: $("lon").value ? parseFloat($("lon").value) : null
+      },
+      modules: {
+        clock: { position: $("clockPosition").value },
+        calendar: { position: $("calendarPosition").value },
+        weatherCurrent: { position: $("weatherCurrentPosition").value },
+        weatherForecast: { position: $("weatherForecastPosition").value },
+        compliments: { position: $("complimentsPosition").value },
+        newsfeed: { position: $("newsfeedPosition").value }
       },
       holidayCountryCode: $("countryCode").value,
       calendarFeeds: linesFromTextarea($("calendarFeeds")),
@@ -856,13 +1067,22 @@
       traffic: {
         enabled: $("trafficEnabled").checked,
         position: $("trafficPosition").value,
-        interval: $("trafficInterval").value ? parseInt($("trafficInterval").value, 10) : 300000,
-        rotateInterval: $("trafficRotateInterval").value ? parseInt($("trafficRotateInterval").value, 10) : 10000,
+        interval: secondsToMs($("trafficInterval").value, 300),
+        rotateInterval: secondsToMs($("trafficRotateInterval").value, 10),
         displayMode: $("trafficDisplayMode").value,
         showSymbol: $("trafficShowSymbol").checked,
-        firstLine: $("trafficFirstLine").value.trim(),
-        secondLine: $("trafficSecondLine").value.trim(),
+        firstLine: "{duration} mins",
+        secondLine: "{trafficText}",
         routes: getTrafficRouteCards().map(getRouteDataFromCard)
+      },
+      tfl: {
+        enabled: $("tflEnabled").checked,
+        position: $("tflPosition").value,
+        refreshInterval: secondsToMs($("tflRefreshInterval").value, 30),
+        maxBusStops: $("tflMaxBusStops").value ? parseInt($("tflMaxBusStops").value, 10) : 2,
+        maxStations: $("tflMaxStations").value ? parseInt($("tflMaxStations").value, 10) : 2,
+        maxArrivals: $("tflMaxArrivals").value ? parseInt($("tflMaxArrivals").value, 10) : 3,
+        radius: $("tflRadius").value ? parseInt($("tflRadius").value, 10) : 1200
       },
       spotify: {
         enabled: $("spotifyEnabled").checked,
@@ -981,6 +1201,12 @@
     el.className = `small trafficLookupStatus ${type}`.trim();
   }
 
+  function showPostcodeStatus(message = "", type = "") {
+    const el = $("postcodeLookupStatus");
+    el.textContent = message;
+    el.className = `small locationLookupStatus ${type}`.trim();
+  }
+
   function clearSuggestionBox(routeId, kind) {
     const state = routeAutocompleteState[routeId];
     if (!state) return;
@@ -1056,6 +1282,36 @@
     }
   }
 
+  async function lookupPostcode() {
+    const postcode = $("postcode").value.trim();
+
+    if (!postcode) {
+      showPostcodeStatus("Enter a postcode first.", "err");
+      return;
+    }
+
+    showPostcodeStatus("Looking up postcode...");
+
+    try {
+      const res = await fetch(`/api/location/postcode?postcode=${encodeURIComponent(postcode)}`);
+      const out = await res.json();
+
+      if (!res.ok || !out.ok) {
+        throw new Error(out.error || "Postcode lookup failed");
+      }
+
+      $("lat").value = Number(out.location.lat).toFixed(6);
+      $("lon").value = Number(out.location.lon).toFixed(6);
+      $("postcode").value = out.location.postcode || postcode;
+
+      const formatted = out.location.formattedAddress || out.location.postcode || "Location found";
+      showPostcodeStatus(`Found: ${formatted}`, "ok");
+      markDirty();
+    } catch (err) {
+      showPostcodeStatus(`Postcode lookup failed: ${err.message}`, "err");
+    }
+  }
+
   function wireAutocomplete(routeId, kind, input, box) {
     if (!routeAutocompleteState[routeId]) {
       routeAutocompleteState[routeId] = {};
@@ -1105,7 +1361,6 @@
     wrapper.innerHTML = `
       <div class="trafficRouteHeader">
         <div class="trafficRouteTitle">Route</div>
-        <button type="button" class="danger remove-route-btn">Remove</button>
       </div>
 
       <label>Route Name</label>
@@ -1133,6 +1388,10 @@
       <div class="trafficAutocompleteWrap">
         <input class="route-destination" placeholder="Type address or postcode" autocomplete="off" value="${escapeHtml(route.destinationAddress || "")}" />
         <div class="trafficSuggestions route-destination-suggestions"></div>
+      </div>
+
+      <div class="trafficRouteFooter">
+        <button type="button" class="danger remove-route-btn">Remove</button>
       </div>
     `;
 
@@ -1289,6 +1548,10 @@
         $("password").value = out.settings.wifi.password || "";
       }
 
+      if (out.settings?.location) {
+        $("postcode").value = out.settings.location.postcode || "";
+      }
+
       if (out.settings?.spotify?.mirrorId) {
         $("spotifyMirrorId").value = out.settings.spotify.mirrorId;
       }
@@ -1330,8 +1593,17 @@
 
       $("ssid").value = s.wifi?.ssid || "";
       $("password").value = s.wifi?.password || "";
+      $("postcode").value = s.location?.postcode || "";
       $("lat").value = s.location?.lat ?? "";
       $("lon").value = s.location?.lon ?? "";
+
+      $("clockPosition").value = s.modules?.clock?.position || "top_left";
+      $("calendarPosition").value = s.modules?.calendar?.position || "top_left";
+      $("weatherCurrentPosition").value = s.modules?.weatherCurrent?.position || "top_right";
+      $("weatherForecastPosition").value = s.modules?.weatherForecast?.position || "top_right";
+      $("complimentsPosition").value = s.modules?.compliments?.position || "lower_third";
+      $("newsfeedPosition").value = s.modules?.newsfeed?.position || "bottom_bar";
+
       $("calendarFeeds").value = (s.calendarFeeds || []).join("\n");
       $("feeds").value = (s.newsFeeds || []).join("\n");
       $("complimentsMorning").value = (s.compliments?.morning || []).join("\n");
@@ -1341,13 +1613,19 @@
 
       $("trafficEnabled").checked = !!s.traffic?.enabled;
       $("trafficPosition").value = s.traffic?.position || "top_right";
-      $("trafficInterval").value = s.traffic?.interval ?? 300000;
-      $("trafficRotateInterval").value = s.traffic?.rotateInterval ?? 10000;
+      $("trafficInterval").value = msToSeconds(s.traffic?.interval, 300);
+      $("trafficRotateInterval").value = msToSeconds(s.traffic?.rotateInterval, 10);
       $("trafficDisplayMode").value = s.traffic?.displayMode || "rotate";
       $("trafficShowSymbol").checked = s.traffic?.showSymbol ?? true;
-      $("trafficFirstLine").value = s.traffic?.firstLine || "{name}: {duration} mins";
-      $("trafficSecondLine").value = s.traffic?.secondLine || "{trafficText} Ã¢â¬Â¢ +{delay} mins Ã¢â¬Â¢ via {route}";
       renderTrafficRoutes(s.traffic?.routes || []);
+
+      $("tflEnabled").checked = !!s.tfl?.enabled;
+      $("tflPosition").value = s.tfl?.position || "top_right";
+      $("tflRefreshInterval").value = msToSeconds(s.tfl?.refreshInterval, 30);
+      $("tflMaxBusStops").value = s.tfl?.maxBusStops ?? 2;
+      $("tflMaxStations").value = s.tfl?.maxStations ?? 2;
+      $("tflMaxArrivals").value = s.tfl?.maxArrivals ?? 3;
+      $("tflRadius").value = s.tfl?.radius ?? 1200;
 
       $("spotifyEnabled").checked = !!s.spotify?.enabled;
       $("spotifyPosition").value = s.spotify?.position || "middle_center";
@@ -1373,17 +1651,20 @@
   }
 
   [
-    "ssid", "password", "lat", "lon", "countryCode",
+    "ssid", "password", "postcode", "lat", "lon", "countryCode",
+    "clockPosition", "calendarPosition", "weatherCurrentPosition", "weatherForecastPosition", "complimentsPosition", "newsfeedPosition",
     "calendarFeeds", "feeds",
     "complimentsMorning", "complimentsAfternoon", "complimentsEvening", "complimentsAnytime",
     "trafficEnabled", "trafficPosition", "trafficInterval", "trafficRotateInterval", "trafficDisplayMode",
-    "trafficShowSymbol", "trafficFirstLine", "trafficSecondLine",
+    "trafficShowSymbol",
+    "tflEnabled", "tflPosition", "tflRefreshInterval", "tflMaxBusStops", "tflMaxStations", "tflMaxArrivals", "tflRadius",
     "spotifyEnabled", "spotifyPosition", "spotifyDisplayWhenEmpty"
   ].forEach(id => {
     $(id).addEventListener("input", () => {
       markDirty();
       if (id === "ssid") highlightSelectedNetwork($("ssid").value.trim());
       if (id === "feeds") updateSuggestedFeedDropdown();
+      if (id === "postcode") showPostcodeStatus("");
     });
     $(id).addEventListener("change", () => {
       markDirty();
@@ -1464,6 +1745,14 @@
       $("autoLocateStatus").style.color = "#c33";
     }
   };
+
+  $("lookupPostcodeBtn").onclick = lookupPostcode;
+  $("postcode").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      lookupPostcode();
+    }
+  });
 
   $("addSuggestedFeedBtn").onclick = addSelectedSuggestedFeed;
   $("suggestedFeedSelect").addEventListener("change", () => {
@@ -1627,4 +1916,3 @@
 </script>
 </body>
 </html>
-

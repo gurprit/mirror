@@ -99,10 +99,22 @@ function normalizeCoordinate(value) {
   return Number(n.toFixed(6));
 }
 
+function normalizePostcode(value) {
+  return String(value || "").trim().toUpperCase();
+}
+
 function defaultSettings() {
   return {
     wifi: { ssid: "", password: "" },
-    location: { lat: null, lon: null },
+    location: { postcode: "", lat: null, lon: null },
+    modules: {
+      clock: { position: "top_left" },
+      calendar: { position: "top_left" },
+      weatherCurrent: { position: "top_right" },
+      weatherForecast: { position: "top_right" },
+      compliments: { position: "lower_third" },
+      newsfeed: { position: "bottom_bar" }
+    },
     holidayCountryCode: "gb",
     calendarFeeds: [],
     newsFeeds: [],
@@ -117,6 +129,15 @@ function defaultSettings() {
       firstLine: "{duration} mins",
       secondLine: "{trafficText} â€¢ +{delay} mins â€¢ via {route}",
       routes: []
+    },
+    tfl: {
+      enabled: false,
+      position: "top_right",
+      refreshInterval: 30000,
+      maxBusStops: 2,
+      maxStations: 2,
+      maxArrivals: 3,
+      radius: 1200
     },
     spotify: {
       enabled: false,
@@ -168,6 +189,28 @@ function sanitizeTrafficRoutes(routes, legacyTraffic = null) {
   return safeRoutes;
 }
 
+function sanitizeModulePositions(modulesInput = {}) {
+  const defaults = defaultSettings().modules;
+  const positions = ["top_left", "top_right", "upper_third", "middle_center", "lower_third", "bottom_left", "bottom_right", "bottom_bar"];
+
+  const safe = {
+    clock: { ...defaults.clock, ...(modulesInput.clock || {}) },
+    calendar: { ...defaults.calendar, ...(modulesInput.calendar || {}) },
+    weatherCurrent: { ...defaults.weatherCurrent, ...(modulesInput.weatherCurrent || {}) },
+    weatherForecast: { ...defaults.weatherForecast, ...(modulesInput.weatherForecast || {}) },
+    compliments: { ...defaults.compliments, ...(modulesInput.compliments || {}) },
+    newsfeed: { ...defaults.newsfeed, ...(modulesInput.newsfeed || {}) }
+  };
+
+  for (const key of Object.keys(safe)) {
+    safe[key].position = positions.includes(String(safe[key].position || ""))
+      ? String(safe[key].position)
+      : defaults[key].position;
+  }
+
+  return safe;
+}
+
 function sanitizeSettings(input) {
   const defaults = defaultSettings();
 
@@ -176,14 +219,19 @@ function sanitizeSettings(input) {
     ...(input || {}),
     wifi: { ...defaults.wifi, ...((input && input.wifi) || {}) },
     location: { ...defaults.location, ...((input && input.location) || {}) },
+    modules: sanitizeModulePositions((input && input.modules) || {}),
     compliments: { ...defaults.compliments, ...((input && input.compliments) || {}) },
     traffic: { ...defaults.traffic, ...((input && input.traffic) || {}) },
+    tfl: { ...defaults.tfl, ...((input && input.tfl) || {}) },
     spotify: { ...defaults.spotify, ...((input && input.spotify) || {}) }
   };
+
+  const positions = ["top_left", "top_right", "upper_third", "middle_center", "lower_third", "bottom_left", "bottom_right", "bottom_bar"];
 
   safe.wifi.ssid = String(safe.wifi.ssid || "").trim();
   safe.wifi.password = String(safe.wifi.password || "");
 
+  safe.location.postcode = normalizePostcode(safe.location.postcode);
   safe.location.lat = safe.location.lat === null || safe.location.lat === "" ? null : Number(safe.location.lat);
   safe.location.lon = safe.location.lon === null || safe.location.lon === "" ? null : Number(safe.location.lon);
 
@@ -207,7 +255,7 @@ function sanitizeSettings(input) {
   }
 
   safe.traffic.enabled = !!safe.traffic.enabled;
-  safe.traffic.position = String(safe.traffic.position || "top_right");
+  safe.traffic.position = positions.includes(String(safe.traffic.position || "")) ? String(safe.traffic.position) : "top_right";
   safe.traffic.interval = Number.isFinite(Number(safe.traffic.interval)) ? Number(safe.traffic.interval) : 300000;
   safe.traffic.rotateInterval = Number.isFinite(Number(safe.traffic.rotateInterval)) ? Number(safe.traffic.rotateInterval) : 10000;
   safe.traffic.displayMode = ["rotate", "list"].includes(safe.traffic.displayMode) ? safe.traffic.displayMode : "rotate";
@@ -219,6 +267,14 @@ function sanitizeSettings(input) {
   delete safe.traffic.originAddress;
   delete safe.traffic.destinationAddress;
   delete safe.traffic.mode;
+
+  safe.tfl.enabled = !!safe.tfl.enabled;
+  safe.tfl.position = positions.includes(String(safe.tfl.position || "")) ? String(safe.tfl.position) : "top_right";
+  safe.tfl.refreshInterval = Number.isFinite(Number(safe.tfl.refreshInterval)) ? Number(safe.tfl.refreshInterval) : 30000;
+  safe.tfl.maxBusStops = Number.isFinite(Number(safe.tfl.maxBusStops)) ? Math.max(1, Math.min(6, Number(safe.tfl.maxBusStops))) : 2;
+  safe.tfl.maxStations = Number.isFinite(Number(safe.tfl.maxStations)) ? Math.max(1, Math.min(6, Number(safe.tfl.maxStations))) : 2;
+  safe.tfl.maxArrivals = Number.isFinite(Number(safe.tfl.maxArrivals)) ? Math.max(1, Math.min(6, Number(safe.tfl.maxArrivals))) : 3;
+  safe.tfl.radius = Number.isFinite(Number(safe.tfl.radius)) ? Math.max(200, Math.min(5000, Number(safe.tfl.radius))) : 1200;
 
   safe.spotify.enabled = !!safe.spotify.enabled;
   safe.spotify.position = String(safe.spotify.position || "middle_center");
@@ -310,6 +366,7 @@ function httpsJsonRequest(urlString, { method = "GET", headers = {}, body = null
           const message =
             parsed?.error?.message ||
             parsed?.status ||
+            parsed?.error_message ||
             res.statusMessage ||
             `HTTP ${res.statusCode}`;
           return reject(new Error(message));
@@ -390,6 +447,7 @@ async function geocodeAddress(address) {
   const url = new URL("https://maps.googleapis.com/maps/api/geocode/json");
   url.searchParams.set("address", trimmed);
   url.searchParams.set("key", GOOGLE_MAPS_API_KEY);
+  url.searchParams.set("region", "gb");
 
   const json = await httpsJsonRequest(url.toString());
 
@@ -410,6 +468,21 @@ async function geocodeAddress(address) {
 
   geocodeCache.set(cacheKey, result);
   return result;
+}
+
+async function lookupPostcode(postcode) {
+  const normalized = normalizePostcode(postcode);
+  if (!normalized) {
+    throw new Error("Postcode is empty");
+  }
+
+  const result = await geocodeAddress(normalized);
+  return {
+    postcode: normalized,
+    lat: result.lat,
+    lon: result.lng,
+    formattedAddress: result.formattedAddress
+  };
 }
 
 async function autocompleteAddress(input) {
@@ -551,6 +624,8 @@ function buildConfigJs(settings) {
   const hasLatLon = Number.isFinite(lat) && Number.isFinite(lon);
   const holidayCalendarUrl = HOLIDAY_CALENDAR_URLS[settings.holidayCountryCode] || HOLIDAY_CALENDAR_URLS.gb;
 
+  const modulePositions = sanitizeModulePositions(settings.modules || {});
+
   const customCalendars = (settings.calendarFeeds || [])
     .filter(u => typeof u === "string" && u.trim())
     .map(u => `          { symbol: "calendar-check", url: ${jsString(u.trim())} }`)
@@ -563,11 +638,11 @@ function buildConfigJs(settings) {
 
   const weatherModules = hasLatLon ? `,
     {
-      module: "weather", position: "top_right",
+      module: "weather", position: ${jsString(modulePositions.weatherCurrent.position)},
       config: { weatherProvider: "openmeteo", type: "current", lat: ${lat}, lon: ${lon} }
     },
     {
-      module: "weather", position: "top_right", header: "Weather Forecast",
+      module: "weather", position: ${jsString(modulePositions.weatherForecast.position)}, header: "Weather Forecast",
       config: { weatherProvider: "openmeteo", type: "forecast", lat: ${lat}, lon: ${lon} }
     }` : "";
 
@@ -592,6 +667,26 @@ function buildConfigJs(settings) {
       }
     }`
     : "";
+
+  const tflModule =
+    settings.tfl?.enabled && hasLatLon
+      ? `,
+    {
+      module: "MMM-TfLNearby",
+      position: ${jsString(settings.tfl.position || "top_right")},
+      header: "Nearby Transport",
+      config: {
+        setupServerUrl: "http://127.0.0.1:3001",
+        latitude: ${lat},
+        longitude: ${lon},
+        refreshInterval: ${Number(settings.tfl.refreshInterval || 30000)},
+        maxBusStops: ${Number(settings.tfl.maxBusStops || 2)},
+        maxStations: ${Number(settings.tfl.maxStations || 2)},
+        maxArrivals: ${Number(settings.tfl.maxArrivals || 3)},
+        radius: ${Number(settings.tfl.radius || 1200)}
+      }
+    }`
+      : "";
 
   const spotifyModule =
     settings.spotify?.enabled &&
@@ -618,11 +713,11 @@ let config = {
   ipWhitelist: [], units: "metric", timeFormat: 24,
   modules: [
     { module: "alert" },
-    { module: "clock", position: "top_left" },
+    { module: "clock", position: ${jsString(modulePositions.clock.position)} },
     {
       module: "calendar",
       header: "Calendars",
-      position: "top_left",
+      position: ${jsString(modulePositions.calendar.position)},
       config: {
         calendars: [
           { url: ${jsString(holidayCalendarUrl)} }${customCalendars ? `,\n${customCalendars}` : ""}
@@ -631,7 +726,7 @@ let config = {
     },
     {
       module: "compliments",
-      position: "lower_third",
+      position: ${jsString(modulePositions.compliments.position)},
       config: {
         compliments: {
           morning: ${JSON.stringify(settings.compliments?.morning || [])},
@@ -640,10 +735,10 @@ let config = {
           anytime: ${JSON.stringify(settings.compliments?.anytime || [])}
         }
       }
-    }${weatherModules}${trafficModule}${spotifyModule},
+    }${weatherModules}${tflModule}${trafficModule}${spotifyModule},
     {
       module: "newsfeed",
-      position: "bottom_bar",
+      position: ${jsString(modulePositions.newsfeed.position)},
       config: {
         feeds: [
           ${feedObjects || `{ title: "BBC", url: "https://feeds.bbci.co.uk/news/rss.xml" }`}
@@ -677,8 +772,10 @@ app.post("/api/settings", (req, res) => {
       ...incoming,
       wifi: { ...current.wifi, ...incoming.wifi },
       location: { ...current.location, ...incoming.location },
+      modules: { ...current.modules, ...incoming.modules },
       compliments: { ...current.compliments, ...incoming.compliments },
       traffic: { ...current.traffic, ...incoming.traffic },
+      tfl: { ...current.tfl, ...incoming.tfl },
       spotify: { ...current.spotify, ...incoming.spotify }
     });
 
@@ -688,6 +785,21 @@ app.post("/api/settings", (req, res) => {
     res.json({ ok: true, settings: saved });
   } catch (err) {
     console.error("Failed to save settings:", err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.get("/api/location/postcode", async (req, res) => {
+  try {
+    const postcode = normalizePostcode(req.query.postcode);
+    if (!postcode) {
+      return res.status(400).json({ ok: false, error: "Postcode is required." });
+    }
+
+    const location = await lookupPostcode(postcode);
+    res.json({ ok: true, location });
+  } catch (err) {
+    console.error("Postcode lookup error:", err);
     res.status(500).json({ ok: false, error: err.message });
   }
 });
